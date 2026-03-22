@@ -12,6 +12,9 @@ function draftToFlashcard(d: FlashcardDraft): Flashcard {
     back: d.back,
     backKind: d.backKind,
     status: 'new',
+    ...(d.pronunciation && { pronunciation: d.pronunciation }),
+    ...(d.partOfSpeech && { partOfSpeech: d.partOfSpeech }),
+    ...(d.exampleSentence && { exampleSentence: d.exampleSentence }),
   }
 }
 
@@ -107,15 +110,13 @@ groupsRouter.put('/:id', async (req, res) => {
             back: d.back ?? existing.back,
             backKind: (d.backKind ?? existing.backKind) as BackKind,
             status: (d.status ?? existing.status) as Flashcard['status'],
+            pronunciation: d.pronunciation ?? existing.pronunciation,
+            partOfSpeech: d.partOfSpeech ?? existing.partOfSpeech,
+            exampleSentence: d.exampleSentence ?? existing.exampleSentence,
           }
         }
       }
-      const draft: FlashcardDraft = {
-        english: d.english,
-        back: d.back,
-        backKind: d.backKind,
-      }
-      return draftToFlashcard(draft)
+      return draftToFlashcard(d)
     })
   }
   await writeDb(db)

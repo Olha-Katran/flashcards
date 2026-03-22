@@ -3,6 +3,7 @@ import type { Flashcard, GroupMode } from '../../types'
 import { FlashcardFlip } from '../FlashcardFlip'
 import { normalizeAnswer } from '../../utils/string'
 import { shuffle } from '../../utils/shuffle'
+import { speak } from '../../utils/speak'
 import { useValidateAnswerMutation } from '../../services/api'
 import styles from './StudyModes.module.scss'
 
@@ -134,6 +135,10 @@ export function LearnMode({
             key={`${card.id}-learn-${flipKey}`}
             front={card.english}
             back={card.back}
+            pronunciation={card.pronunciation}
+            partOfSpeech={card.partOfSpeech}
+            exampleSentence={card.exampleSentence}
+            lang={frontLang}
           />
           <button type="button" className={styles.btnPrimary} onClick={nextPhase}>
             {cards.length < 2 ? 'Continue to typing' : 'Continue to quiz'}
@@ -144,7 +149,10 @@ export function LearnMode({
       {phase === 'mcq' && (
         <div className={styles.panel}>
           <p className={styles.prompt}>Choose the correct answer:</p>
-          <p className={styles.word}>{card.english}</p>
+          <div className={styles.wordRow}>
+            <p className={styles.word}>{card.english}</p>
+            <button type="button" className={styles.speakSmall} onClick={() => speak(card.english, frontLang)} aria-label="Listen">🔊</button>
+          </div>
           <div className={styles.options}>
             {(mcqShown.length ? mcqShown : mcqOptions).map((opt, i) => (
               <button
@@ -177,7 +185,10 @@ export function LearnMode({
       {phase === 'type' && (
         <div className={styles.panel}>
           <p className={styles.prompt}>{typePrompt}</p>
-          <p className={styles.word}>{card.english}</p>
+          <div className={styles.wordRow}>
+            <p className={styles.word}>{card.english}</p>
+            <button type="button" className={styles.speakSmall} onClick={() => speak(card.english, frontLang)} aria-label="Listen">🔊</button>
+          </div>
           <input
             className={styles.input}
             value={typeVal}

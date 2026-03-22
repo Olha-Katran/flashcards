@@ -146,9 +146,12 @@ ${preferences ? `User preferences: ${preferences}` : ''}
 Each flashcard must have:
 - "english": the ${frontLang} word or short phrase
 - "back": ${backDescription}
+- "pronunciation": phonetic spelling (IPA or simplified), e.g. "/həˈloʊ/"
+- "partOfSpeech": part of speech (noun, verb, adjective, adverb, etc.)
+- "exampleSentence": a short example sentence using the word in ${frontLang}
 
 Return ONLY a valid JSON array with no extra text, no markdown, no code fences.
-Example: [{"english":"hello","back":"${mode === 'definition' ? 'a greeting used when meeting someone' : 'привіт'}"}]`
+Example: [{"english":"hello","back":"${mode === 'definition' ? 'a greeting used when meeting someone' : 'привіт'}","pronunciation":"/həˈloʊ/","partOfSpeech":"interjection","exampleSentence":"Hello, how are you today?"}]`
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`
 
@@ -185,5 +188,92 @@ Example: [{"english":"hello","back":"${mode === 'definition' ? 'a greeting used 
     english: String(item.english ?? ''),
     back: String(item.back ?? ''),
     backKind,
+    pronunciation: typeof item.pronunciation === 'string' ? item.pronunciation : undefined,
+    partOfSpeech: typeof item.partOfSpeech === 'string' ? item.partOfSpeech : undefined,
+    exampleSentence: typeof item.exampleSentence === 'string' ? item.exampleSentence : undefined,
+  }))
+}
+
+export async function generateFromPdf(
+  pdfBuffer: Buffer,
+  level: string
+): Promise<FlashcardDraft[]> {
+  const key = process.env.GEMINI_API_KEY
+  if (!key) throw new Error('GEMINI_API_KEY is not set')
+
+  const prompt = `You are an English learning assistant.
+
+A student uploaded lesson material (PDF).
+Your task is to extract useful English vocabulary for their level.
+
+Level: ${level}
+
+Instructions:
+- Extract important words and phrases from the content
+- Ignore UI text, random noise, or repeated words
+- Focus on useful vocabulary for learning
+- Avoid very rare or overly complex words beyond the level
+- Extract between 5 and 25 words depending on the PDF content
+
+For each word provide a JSON object with:
+- "english": the English word or short phrase
+- "back": Ukrainian translation
+- "pronunciation": phonetic pronunciation (IPA), e.g. "/həˈloʊ/"
+- "partOfSpeech": part of speech (noun, verb, adjective, adverb, etc.)
+- "exampleSentence": a short example sentence using the word
+
+Return ONLY a valid JSON array with no extra text, no markdown, no code fences.
+Example: [{"english":"journey","back":"подорож","pronunciation":"/ˈdʒɜːrni/","partOfSpeech":"noun","exampleSentence":"The journey took three hours."}]`
+
+  const pdfBase64 = pdfBuffer.toString('base64')
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          {
+            inlineData: {
+              mimeType: 'application/pdf',
+              data: pdfBase64,
+            },
+          },
+          { text: prompt },
+        ],
+      }],
+    }),
+  })
+
+  if (!res.ok) {
+    const body = await res.text()
+    const err = new Error(`Gemini API ${res.status}: ${body}`)
+    ;(err as unknown as Record<string, number>).status = res.status
+    throw err
+  }
+
+  const data = (await res.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+  }
+
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+  if (!text) throw new Error('Empty response from Gemini')
+
+  const jsonStr = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
+  const parsed = JSON.parse(jsonStr)
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('Gemini did not return an array')
+  }
+
+  return parsed.map((item: Record<string, unknown>) => ({
+    english: String(item.english ?? ''),
+    back: String(item.back ?? ''),
+    backKind: 'translation' as const,
+    pronunciation: typeof item.pronunciation === 'string' ? item.pronunciation : undefined,
+    partOfSpeech: typeof item.partOfSpeech === 'string' ? item.partOfSpeech : undefined,
+    exampleSentence: typeof item.exampleSentence === 'string' ? item.exampleSentence : undefined,
   }))
 }

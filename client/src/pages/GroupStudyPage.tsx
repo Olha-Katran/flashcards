@@ -85,7 +85,7 @@ export function GroupStudyPage() {
 
       <section className={styles.body}>
         {tab === 'review' && (
-          <ReviewMode groupId={group.id} cards={group.flashcards} />
+          <ReviewMode groupId={group.id} cards={group.flashcards} frontLang={frontLang} />
         )}
         {tab === 'learn' && (
           <LearnMode

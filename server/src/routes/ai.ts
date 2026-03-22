@@ -1,8 +1,17 @@
 import { Router } from 'express'
-import { generateFlashcards, validateAnswer } from '../gemini.js'
+import multer from 'multer'
+import { generateFlashcards, generateFromPdf, validateAnswer } from '../gemini.js'
 import type { AiGenerateBody, GroupMode } from '../types.js'
 
 export const aiRouter = Router()
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    cb(null, file.mimetype === 'application/pdf')
+  },
+})
 
 aiRouter.post('/validate-answer', async (req, res) => {
   const { userAnswer, correctAnswer, englishWord, mode, frontLang, backLang } = req.body as {
@@ -82,5 +91,37 @@ aiRouter.post('/generate', async (req, res) => {
 
     console.error('Gemini generate error:', msg)
     return res.status(502).json({ error: 'AI generation failed. Please try again.' })
+  }
+})
+
+aiRouter.post('/generate-from-pdf', upload.single('pdf'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'A PDF file is required.' })
+  }
+
+  const englishLevel = typeof req.body.englishLevel === 'string'
+    ? req.body.englishLevel.trim()
+    : 'B1'
+
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server' })
+  }
+
+  try {
+    const flashcards = await generateFromPdf(req.file.buffer, englishLevel)
+    res.json({ flashcards })
+  } catch (err: unknown) {
+    const status = (err as { status?: number }).status
+    const msg = err instanceof Error ? err.message : String(err)
+
+    if (status === 429 || msg.toLowerCase().includes('quota')) {
+      return res.status(429).json({ error: 'Rate limit reached. Please wait a moment and try again.' })
+    }
+    if (status === 401 || status === 403 || msg.includes('API key')) {
+      return res.status(401).json({ error: 'Invalid or missing API key.' })
+    }
+
+    console.error('Gemini PDF generate error:', msg)
+    return res.status(502).json({ error: 'AI generation from PDF failed. Please try again.' })
   }
 })

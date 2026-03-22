@@ -56,6 +56,9 @@ export function GroupEditPage() {
           back: c.back,
           backKind: c.backKind,
           status: c.status,
+          pronunciation: c.pronunciation,
+          partOfSpeech: c.partOfSpeech,
+          exampleSentence: c.exampleSentence,
         }))
       )
     }
@@ -79,6 +82,9 @@ export function GroupEditPage() {
           back: c.back,
           backKind: c.backKind,
           status: 'new' as const,
+          pronunciation: c.pronunciation,
+          partOfSpeech: c.partOfSpeech,
+          exampleSentence: c.exampleSentence,
         }))
       )
       navigate('.', { replace: true, state: {} })
@@ -120,6 +126,9 @@ export function GroupEditPage() {
         back: r.back.trim(),
         backKind,
         status: r.status,
+        pronunciation: r.pronunciation,
+        partOfSpeech: r.partOfSpeech,
+        exampleSentence: r.exampleSentence,
       }))
 
     try {
@@ -159,6 +168,9 @@ export function GroupEditPage() {
         back: c.back,
         backKind: c.backKind,
         status: 'new' as const,
+        pronunciation: c.pronunciation,
+        partOfSpeech: c.partOfSpeech,
+        exampleSentence: c.exampleSentence,
       })),
     ])
   }

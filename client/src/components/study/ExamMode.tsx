@@ -3,6 +3,7 @@ import type { Flashcard, GroupMode } from '../../types'
 import { useCompleteExamMutation, useValidateAnswerMutation } from '../../services/api'
 import { normalizeAnswer } from '../../utils/string'
 import { shuffle } from '../../utils/shuffle'
+import { speak } from '../../utils/speak'
 import styles from './StudyModes.module.scss'
 
 type QType = 'mcq' | 'type'
@@ -168,7 +169,10 @@ export function ExamMode({
           Question {index + 1} / {totalQ} · Multiple choice
         </p>
         <div className={styles.panel}>
-          <p className={styles.word}>{card.english}</p>
+          <div className={styles.wordRow}>
+            <p className={styles.word}>{card.english}</p>
+            <button type="button" className={styles.speakSmall} onClick={() => speak(card.english, frontLang)} aria-label="Listen">🔊</button>
+          </div>
           <div className={styles.options}>
             {mcqOptions.map((opt, i) => (
               <button
@@ -223,7 +227,10 @@ export function ExamMode({
       </p>
       <div className={styles.panel}>
         <p className={styles.prompt}>{typePrompt}</p>
-        <p className={styles.word}>{card.english}</p>
+        <div className={styles.wordRow}>
+          <p className={styles.word}>{card.english}</p>
+          <button type="button" className={styles.speakSmall} onClick={() => speak(card.english, frontLang)} aria-label="Listen">🔊</button>
+        </div>
         <input
           className={styles.input}
           value={typeVal}

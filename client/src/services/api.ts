@@ -116,6 +116,17 @@ export const flashcardsApi = createApi({
         body,
       }),
     }),
+    generateFromPdf: builder.mutation<
+      { flashcards: FlashcardDraft[] },
+      FormData
+    >({
+      query: (body) => ({
+        url: '/ai/generate-from-pdf',
+        method: 'POST',
+        body,
+        formData: true,
+      }),
+    }),
     completeExam: builder.mutation<
       { group: FlashcardGroup; passed: boolean },
       { groupId: string; score: number }
@@ -141,6 +152,7 @@ export const {
   useDeleteGroupMutation,
   usePatchFlashcardMutation,
   useGenerateAiMutation,
+  useGenerateFromPdfMutation,
   useValidateAnswerMutation,
   useCompleteExamMutation,
 } = flashcardsApi

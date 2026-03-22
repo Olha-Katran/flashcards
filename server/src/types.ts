@@ -9,6 +9,9 @@ export interface Flashcard {
   back: string
   backKind: BackKind
   status: FlashcardStatus
+  pronunciation?: string
+  partOfSpeech?: string
+  exampleSentence?: string
 }
 
 export interface FlashcardGroup {
@@ -49,4 +52,7 @@ export interface FlashcardDraft {
   english: string
   back: string
   backKind: BackKind
+  pronunciation?: string
+  partOfSpeech?: string
+  exampleSentence?: string
 }
