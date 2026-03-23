@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model FlashcardGroup {
+  id          String      @id @default(uuid())
+  title       String
+  groupStatus String      @default("in_progress")
+  mode        String      @default("translation")
+  frontLang   String      @default("English")
+  backLang    String      @default("Ukrainian")
+  createdAt   DateTime    @default(now())
+  flashcards  Flashcard[]
+}
+
+model Flashcard {
+  id              String         @id @default(uuid())
+  english         String
+  back            String
+  backKind        String         @default("translation")
+  status          String         @default("new")
+  pronunciation   String?
+  partOfSpeech    String?
+  exampleSentence String?
+  group           FlashcardGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId         String
+}

@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "buildCommand": "npx prisma generate && npx prisma migrate deploy && npx tsc",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api" }
+  ]
+}
