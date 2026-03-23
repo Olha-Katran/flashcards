@@ -3,6 +3,5 @@ dist
 *.local
 .env
 server/data/db.json
-server/src/generated
 .DS_Store
 .vercel

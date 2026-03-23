@@ -1,7 +1,13 @@
 {
   "version": 2,
-  "buildCommand": "npx prisma generate && npx tsc",
-  "outputDirectory": "dist",
+  "framework": null,
+  "installCommand": "npm install && npx prisma generate",
+  "buildCommand": "npx tsc",
+  "functions": {
+    "api/**/*.js": {
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/api" }
   ]
