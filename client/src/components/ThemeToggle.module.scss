@@ -1,3 +1,7 @@
+.wrapper {
+  position: relative;
+}
+
 .btn {
   padding: 0.45rem 0.85rem;
   border-radius: var(--radius-sm);
@@ -6,6 +10,7 @@
   color: var(--color-text);
   font-size: 0.875rem;
   font-weight: 500;
+  cursor: pointer;
   transition:
     background var(--transition),
     border-color var(--transition);
@@ -13,5 +18,84 @@
   &:hover {
     background: var(--color-accent-soft);
     border-color: var(--color-accent);
+  }
+}
+
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 150px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-md);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition);
+
+  &:hover {
+    background: var(--color-accent-soft);
+  }
+
+  &.active {
+    color: var(--color-accent);
+  }
+}
+
+.swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-border);
+  flex-shrink: 0;
+
+  &.light {
+    background: #f4f6fa;
+  }
+
+  &.dark {
+    background: #171b24;
+  }
+
+  &.midnight {
+    background: #111827;
+  }
+
+  &.amoled {
+    background: #000000;
+  }
+
+  &.dracula {
+    background: #282a36;
+  }
+
+  &.nord {
+    background: #2e3440;
+  }
+
+  &.forest {
+    background: #142117;
+  }
+
+  &.sunset {
+    background: #231913;
   }
 }

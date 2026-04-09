@@ -6,6 +6,16 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id        String           @id @default(uuid())
+  googleId  String           @unique
+  email     String           @unique
+  name      String?
+  picture   String?
+  createdAt DateTime         @default(now())
+  groups    FlashcardGroup[]
+}
+
 model FlashcardGroup {
   id          String      @id @default(uuid())
   title       String
@@ -13,8 +23,11 @@ model FlashcardGroup {
   mode        String      @default("translation")
   frontLang   String      @default("English")
   backLang    String      @default("Ukrainian")
+  sharedTopic String?
   createdAt   DateTime    @default(now())
   flashcards  Flashcard[]
+  user        User?       @relation(fields: [userId], references: [id])
+  userId      String?
 }
 
 model Flashcard {
@@ -28,4 +41,27 @@ model Flashcard {
   exampleSentence String?
   group           FlashcardGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
   groupId         String
+}
+
+model SharedGroup {
+  id         String            @id @default(uuid())
+  topic      String
+  level      String
+  title      String
+  createdAt  DateTime          @default(now())
+  flashcards SharedFlashcard[]
+
+  @@unique([topic, level])
+}
+
+model SharedFlashcard {
+  id              String      @id @default(uuid())
+  english         String
+  back            String
+  backKind        String      @default("translation")
+  pronunciation   String?
+  partOfSpeech    String?
+  exampleSentence String?
+  sharedGroup     SharedGroup @relation(fields: [sharedGroupId], references: [id], onDelete: Cascade)
+  sharedGroupId   String
 }

@@ -1,10 +1,12 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
+import { getStoredToken } from '../auth/AuthContext'
 import type {
   Flashcard,
   FlashcardDraft,
   FlashcardGroup,
   GroupMode,
   GroupSummary,
+  SharedGroupSummary,
   AiGenerateRequest,
 } from '../types'
 
@@ -14,10 +16,15 @@ export const flashcardsApi = createApi({
   reducerPath: 'flashcardsApi',
   baseQuery: fetchBaseQuery({
     baseUrl: `${baseUrl}/api`,
+    prepareHeaders: (headers) => {
+      const token = getStoredToken()
+      if (token) headers.set('Authorization', `Bearer ${token}`)
+      return headers
+    },
   }),
-  tagTypes: ['Group', 'GroupList'],
+  tagTypes: ['Group', 'GroupList', 'SharedGroups'],
   endpoints: (builder) => ({
-    listGroups: builder.query<GroupSummary[], void>({
+    listGroups: builder.query<GroupSummary[], string | undefined>({
       query: () => '/groups',
       providesTags: [{ type: 'GroupList', id: 'LIST' }],
     }),
@@ -116,6 +123,23 @@ export const flashcardsApi = createApi({
         body,
       }),
     }),
+    regenerateOne: builder.mutation<
+      { card: FlashcardDraft },
+      {
+        topic: string
+        englishLevel: string
+        mode?: GroupMode
+        frontLang?: string
+        backLang?: string
+        exclude?: string[]
+      }
+    >({
+      query: (body) => ({
+        url: '/ai/regenerate-one',
+        method: 'POST',
+        body,
+      }),
+    }),
     generateFromPdf: builder.mutation<
       { flashcards: FlashcardDraft[] },
       FormData
@@ -141,6 +165,34 @@ export const flashcardsApi = createApi({
         { type: 'GroupList', id: 'LIST' },
       ],
     }),
+    listSharedGroups: builder.query<SharedGroupSummary[], string>({
+      query: (level) => `/shared-groups?level=${level}`,
+      providesTags: [{ type: 'SharedGroups', id: 'LIST' }],
+    }),
+    startSharedGroup: builder.mutation<
+      FlashcardGroup,
+      { topic: string; level: string }
+    >({
+      query: (body) => ({
+        url: '/shared-groups/start',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: [
+        { type: 'GroupList', id: 'LIST' },
+        { type: 'SharedGroups', id: 'LIST' },
+      ],
+    }),
+    updateSharedLevel: builder.mutation<{ deleted: number }, string>({
+      query: (level) => ({
+        url: '/shared-groups/update-level',
+        method: 'POST',
+        body: { level },
+      }),
+      invalidatesTags: [
+        { type: 'GroupList', id: 'LIST' },
+      ],
+    }),
   }),
 })
 
@@ -152,7 +204,11 @@ export const {
   useDeleteGroupMutation,
   usePatchFlashcardMutation,
   useGenerateAiMutation,
+  useRegenerateOneMutation,
   useGenerateFromPdfMutation,
   useValidateAnswerMutation,
   useCompleteExamMutation,
+  useListSharedGroupsQuery,
+  useStartSharedGroupMutation,
+  useUpdateSharedLevelMutation,
 } = flashcardsApi

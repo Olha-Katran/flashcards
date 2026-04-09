@@ -4,37 +4,6 @@
   flex-direction: column;
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-}
-
-.logo {
-  font-weight: 700;
-  font-size: 1.15rem;
-  color: var(--color-text);
-  letter-spacing: -0.03em;
-}
-
-.nav {
-  display: flex;
-  gap: 1.25rem;
-  flex: 1;
-
-  a {
-    color: var(--color-text-muted);
-    font-weight: 500;
-    &:hover {
-      color: var(--color-text);
-    }
-  }
-}
-
 .main {
   flex: 1;
   padding: 1.5rem;

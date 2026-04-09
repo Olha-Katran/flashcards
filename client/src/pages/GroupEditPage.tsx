@@ -1,21 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
 import { AiGeneratorModal } from '../components/AiGeneratorModal'
+import { AuthModal } from '../components/AuthModal'
+import { LoaderDots } from '../components/LoaderDots'
 import {
   useCreateGroupMutation,
   useGetGroupQuery,
   useUpdateGroupMutation,
 } from '../services/api'
+import { LANGUAGES } from '../constants'
 import type { Flashcard, FlashcardDraft, GroupMode } from '../types'
 import styles from './GroupEditPage.module.scss'
 
 type Row = FlashcardDraft & { id?: string; status?: Flashcard['status'] }
-
-const POPULAR_LANGUAGES = [
-  'English', 'Ukrainian', 'Spanish', 'French', 'German',
-  'Italian', 'Portuguese', 'Polish', 'Japanese', 'Chinese',
-  'Korean', 'Arabic', 'Turkish', 'Dutch', 'Swedish',
-]
 
 function emptyRow(mode: GroupMode): Row {
   return {
@@ -31,6 +29,7 @@ export function GroupEditPage() {
   const isNew = !id
   const navigate = useNavigate()
   const location = useLocation()
+  const { user } = useAuth()
 
   const { data: existing, isLoading } = useGetGroupQuery(id!, { skip: !id })
   const [createGroup, { isLoading: creating }] = useCreateGroupMutation()
@@ -42,6 +41,7 @@ export function GroupEditPage() {
   const [backLang, setBackLang] = useState('Ukrainian')
   const [rows, setRows] = useState<Row[]>([emptyRow('translation')])
   const [aiOpen, setAiOpen] = useState(false)
+  const [authOpen, setAuthOpen] = useState(false)
 
   useEffect(() => {
     if (!isNew && existing) {
@@ -118,6 +118,11 @@ export function GroupEditPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!user) {
+      setAuthOpen(true)
+      return
+    }
+
     const flashcards = rows
       .filter((r) => r.english.trim() && r.back.trim())
       .map((r) => ({
@@ -176,7 +181,7 @@ export function GroupEditPage() {
   }
 
   if (!isNew && isLoading) {
-    return <p className={styles.muted}>Loading…</p>
+    return <p className={styles.muted}><LoaderDots /></p>
   }
 
   const busy = creating || updating
@@ -187,10 +192,7 @@ export function GroupEditPage() {
   return (
     <div className={styles.page}>
       <div className={styles.top}>
-        <Link to="/" className={styles.back}>
-          ← Dashboard
-        </Link>
-        <h1 className={styles.title}>{isNew ? 'New group' : 'Edit group'}</h1>
+        
         <button
           type="button"
           className={styles.ai}
@@ -222,7 +224,7 @@ export function GroupEditPage() {
           <label className={styles.field}>
             <span>Front language</span>
             <select value={frontLang} onChange={(e) => setFrontLang(e.target.value)}>
-              {POPULAR_LANGUAGES.map((l) => (
+              {LANGUAGES.map((l) => (
                 <option key={l} value={l}>{l}</option>
               ))}
             </select>
@@ -231,7 +233,7 @@ export function GroupEditPage() {
             <label className={styles.field}>
               <span>Back language</span>
               <select value={backLang} onChange={(e) => setBackLang(e.target.value)}>
-                {POPULAR_LANGUAGES.filter((l) => l !== frontLang).map((l) => (
+                {LANGUAGES.filter((l) => l !== frontLang).map((l) => (
                   <option key={l} value={l}>{l}</option>
                 ))}
               </select>
@@ -275,7 +277,7 @@ export function GroupEditPage() {
 
         <div className={styles.actions}>
           <button type="submit" className={styles.save} disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? <><LoaderDots size="sm" /> Saving</> : user ? 'Save' : 'Sign in to save'}
           </button>
           <Link to={isNew ? '/' : `/groups/${id}`} className={styles.cancel}>
             Cancel
@@ -291,6 +293,7 @@ export function GroupEditPage() {
         frontLang={frontLang}
         backLang={backLang}
       />
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </div>
   )
 }

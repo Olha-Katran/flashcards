@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { speak } from '../utils/speak'
 import styles from './FlashcardFlip.module.scss'
 
@@ -10,6 +10,7 @@ export function FlashcardFlip({
   exampleSentence,
   lang,
   onFlip,
+  autoFocus,
 }: {
   front: string
   back: string
@@ -18,12 +19,21 @@ export function FlashcardFlip({
   exampleSentence?: string
   lang?: string
   onFlip?: () => void
+  autoFocus?: boolean
 }) {
   const [flipped, setFlipped] = useState(false)
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (autoFocus) wrapRef.current?.focus()
+  }, [autoFocus])
 
   function toggle() {
-    setFlipped((f) => !f)
-    onFlip?.()
+    setFlipped((f) => {
+      const next = !f
+      if (next) onFlip?.()
+      return next
+    })
   }
 
   function handleSpeak(e: React.MouseEvent) {
@@ -34,6 +44,7 @@ export function FlashcardFlip({
   return (
     <div
       className={styles.wrap}
+      ref={wrapRef}
       onClick={toggle}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {

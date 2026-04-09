@@ -7,37 +7,66 @@ import {
   useState,
 } from 'react'
 
-type Theme = 'light' | 'dark'
+export type Theme = 'light' | 'dark' | 'midnight' | 'amoled' | 'dracula' | 'nord' | 'forest' | 'sunset'
 
-const STORAGE_KEY = 'flashcards-theme'
+export const THEMES: { id: Theme; label: string }[] = [
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
+  { id: 'midnight', label: 'Midnight' },
+  { id: 'amoled', label: 'AMOLED' },
+  { id: 'dracula', label: 'Dracula' },
+  { id: 'nord', label: 'Nord' },
+  { id: 'forest', label: 'Forest' },
+  { id: 'sunset', label: 'Sunset' },
+]
+
+const VALID_THEMES = new Set<string>(THEMES.map((t) => t.id))
+const BASE_KEY = 'flashcards-theme'
+
+function storageKey(userId?: string | null) {
+  return userId ? `${BASE_KEY}-${userId}` : BASE_KEY
+}
+
+function readTheme(userId?: string | null): Theme {
+  if (typeof window === 'undefined') return 'dark'
+  const s = localStorage.getItem(storageKey(userId))
+  return VALID_THEMES.has(s ?? '') ? (s as Theme) : 'dark'
+}
 
 const ThemeContext = createContext<{
   theme: Theme
   toggle: () => void
   setTheme: (t: Theme) => void
+  syncUser: (userId: string | null) => void
 } | null>(null)
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === 'undefined') return 'dark'
-    const s = localStorage.getItem(STORAGE_KEY) as Theme | null
-    return s === 'light' || s === 'dark' ? s : 'dark'
-  })
+  const [userId, setUserId] = useState<string | null>(null)
+  const [theme, setThemeState] = useState<Theme>(() => readTheme())
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
-    localStorage.setItem(STORAGE_KEY, theme)
-  }, [theme])
+    localStorage.setItem(storageKey(userId), theme)
+  }, [theme, userId])
+
+  const syncUser = useCallback((uid: string | null) => {
+    setUserId(uid)
+    setThemeState(readTheme(uid))
+  }, [])
 
   const setTheme = useCallback((t: Theme) => setThemeState(t), [])
   const toggle = useCallback(
-    () => setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark')),
+    () =>
+      setThemeState((prev) => {
+        const idx = THEMES.findIndex((t) => t.id === prev)
+        return THEMES[(idx + 1) % THEMES.length].id
+      }),
     []
   )
 
   const value = useMemo(
-    () => ({ theme, toggle, setTheme }),
-    [theme, toggle, setTheme]
+    () => ({ theme, toggle, setTheme, syncUser }),
+    [theme, toggle, setTheme, syncUser]
   )
 
   return (

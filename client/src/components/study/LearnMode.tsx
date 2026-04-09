@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Flashcard, GroupMode } from '../../types'
 import { FlashcardFlip } from '../FlashcardFlip'
+import { LoaderDots } from '../LoaderDots'
 import { normalizeAnswer } from '../../utils/string'
 import { shuffle } from '../../utils/shuffle'
 import { speak } from '../../utils/speak'
@@ -219,7 +220,7 @@ export function LearnMode({
               disabled={!typeVal.trim() || validating}
               onClick={handleCheckAnswer}
             >
-              {validating ? 'Checking…' : 'Check'}
+              {validating ? <><LoaderDots size="sm" /> Checking</> : 'Check'}
             </button>
           ) : verdict.correct ? (
             <button
@@ -236,7 +237,7 @@ export function LearnMode({
               disabled={!typeVal.trim() || validating}
               onClick={handleCheckAnswer}
             >
-              {validating ? 'Checking…' : 'Try again'}
+              {validating ? <><LoaderDots size="sm" /> Checking</> : 'Try again'}
             </button>
           )}
         </div>

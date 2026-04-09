@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { LoaderDots } from '../components/LoaderDots'
 import { ReviewMode } from '../components/study/ReviewMode'
 import { LearnMode } from '../components/study/LearnMode'
 import { ExamMode } from '../components/study/ExamMode'
@@ -16,13 +17,9 @@ export function GroupStudyPage() {
   const [tab, setTab] = useState<Tab>('review')
 
   if (!id) return null
-  if (isLoading) return <p className={styles.muted}>Loading…</p>
+  if (isLoading) return <p className={styles.muted}><LoaderDots /></p>
   if (isError || !group) {
-    return (
-      <p className={styles.err}>
-        Group not found. <Link to="/">Back</Link>
-      </p>
-    )
+    return <p className={styles.err}>Group not found.</p>
   }
 
   const mode = group.mode ?? 'translation'
@@ -32,9 +29,6 @@ export function GroupStudyPage() {
   return (
     <div className={styles.page}>
       <div className={styles.head}>
-        <Link to="/" className={styles.back}>
-          ← Dashboard
-        </Link>
         <div className={styles.titleRow}>
           <h1 className={styles.title}>{group.title}</h1>
           <span className={styles.modeBadge}>

@@ -1,78 +1,55 @@
-import { useState } from 'react'
-import { GroupCard } from '../components/GroupCard'
-import { AiGeneratorModal } from '../components/AiGeneratorModal'
-import {
-  useDeleteGroupMutation,
-  useListGroupsQuery,
-} from '../services/api'
-import type { FlashcardDraft, GroupMode } from '../types'
-import { useNavigate } from 'react-router-dom'
+import { AuthModal } from '../components/AuthModal'
+import { useDashboardPage } from '../hooks/useDashboardPage'
+import { DashboardHero } from './dashboard/DashboardHero'
+import { DashboardStatusBanners } from './dashboard/DashboardStatusBanners'
+import { SharedTopicsSection } from './dashboard/SharedTopicsSection'
+import { UserGroupsCarousel } from './dashboard/UserGroupsCarousel'
 import styles from './DashboardPage.module.scss'
 
 export function DashboardPage() {
-  const { data: groups, isLoading, isError } = useListGroupsQuery()
-  const [deleteGroup] = useDeleteGroupMutation()
-  const [aiOpen, setAiOpen] = useState(false)
-  const navigate = useNavigate()
+  const {
+    user,
+    level,
+    groups,
+    isLoading,
+    isFetching,
+    isError,
+    visibleShared,
+    authOpen,
+    setAuthOpen,
+    startingTopic,
+    deleteGroupById,
+    startSharedTopic,
+  } = useDashboardPage()
 
-  async function handleDelete(id: string) {
-    if (!confirm('Delete this group?')) return
-    try {
-      await deleteGroup(id).unwrap()
-    } catch {
-      alert('Could not delete')
-    }
-  }
-
-  function handleAiApply(cards: FlashcardDraft[], mode: GroupMode, frontLang: string, backLang: string) {
-    navigate('/groups/new', { state: { aiCards: cards, aiMode: mode, aiFrontLang: frontLang, aiBackLang: backLang } })
-  }
+  const hasRecommendedTopics = visibleShared.length > 0
 
   return (
     <div className={styles.page}>
-      <div className={styles.hero}>
-        <div>
-          <h1 className={styles.title}>Your groups</h1>
-          <p className={styles.sub}>
-            Create decks, learn with flip and quizzes, pass the exam to mark a
-            group as learnt.
-          </p>
-        </div>
-        <div className={styles.toolbar}>
-          <button
-            type="button"
-            className={styles.ai}
-            onClick={() => setAiOpen(true)}
-          >
-            Generate with AI
-          </button>
-        </div>
-      </div>
+      <DashboardHero user={user} />
 
-      {isLoading && <p className={styles.muted}>Loading…</p>}
-      {isError && (
-        <p className={styles.err}>
-          Cannot reach API. Start the server and check VITE_API_URL.
-        </p>
-      )}
-      {groups && groups.length === 0 && (
-        <p className={styles.empty}>
-          No groups yet. Create one or generate cards with AI.
-        </p>
-      )}
-      {groups && groups.length > 0 && (
-        <div className={styles.grid}>
-          {groups.map((g) => (
-            <GroupCard key={g.id} group={g} onDelete={handleDelete} />
-          ))}
-        </div>
-      )}
-
-      <AiGeneratorModal
-        open={aiOpen}
-        onClose={() => setAiOpen(false)}
-        onApply={handleAiApply}
+      <DashboardStatusBanners
+        user={user}
+        groups={groups}
+        isLoading={isLoading}
+        isFetching={isFetching}
+        isError={isError}
+        hasRecommendedTopics={hasRecommendedTopics}
       />
+
+      {user && groups && groups.length > 0 && (
+        <UserGroupsCarousel groups={groups} onDeleteGroup={deleteGroupById} />
+      )}
+
+      <SharedTopicsSection
+        level={level}
+        topics={visibleShared}
+        user={user}
+        startingTopic={startingTopic}
+        onStartTopic={startSharedTopic}
+      />
+
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </div>
   )
 }

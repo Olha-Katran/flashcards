@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Flashcard } from '../../types'
 import { FlashcardFlip } from '../FlashcardFlip'
 import { usePatchFlashcardMutation } from '../../services/api'
@@ -17,8 +17,46 @@ export function ReviewMode({
   const [flipReset, setFlipReset] = useState(0)
   const [patch] = usePatchFlashcardMutation()
 
-  const card = cards[index]
-  const total = cards.length
+  // Keep a stable order even when the server refetches after status updates.
+  const ordered = useMemo(
+    () => [...cards].sort((a, b) => a.id.localeCompare(b.id)),
+    [cards]
+  )
+
+  const total = ordered.length
+  const card = ordered[index]
+
+  const goPrev = useCallback(() => {
+    if (index === 0) return
+    setIndex((i) => i - 1)
+    setFlipReset((k) => k + 1)
+  }, [index])
+
+  const goNext = useCallback(() => {
+    if (index >= total - 1) return
+    setIndex((i) => i + 1)
+    setFlipReset((k) => k + 1)
+  }, [index, total])
+
+  useEffect(() => {
+    // If total shrinks or order changes, clamp index.
+    if (index > total - 1) setIndex(Math.max(0, total - 1))
+  }, [index, total])
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        goPrev()
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        goNext()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [goNext, goPrev])
 
   const onFlip = useCallback(() => {
     if (!card) return
@@ -45,16 +83,14 @@ export function ReviewMode({
         exampleSentence={card.exampleSentence}
         lang={frontLang}
         onFlip={onFlip}
+        autoFocus
       />
       <div className={styles.nav}>
         <button
           type="button"
           className={styles.btn}
           disabled={index === 0}
-          onClick={() => {
-            setIndex((i) => i - 1)
-            setFlipReset((k) => k + 1)
-          }}
+          onClick={goPrev}
         >
           Previous
         </button>
@@ -62,10 +98,7 @@ export function ReviewMode({
           type="button"
           className={styles.btnPrimary}
           disabled={index >= total - 1}
-          onClick={() => {
-            setIndex((i) => i + 1)
-            setFlipReset((k) => k + 1)
-          }}
+          onClick={goNext}
         >
           Next
         </button>

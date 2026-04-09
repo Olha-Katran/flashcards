@@ -21,6 +21,7 @@ export interface FlashcardGroup {
   mode: GroupMode
   frontLang: string
   backLang: string
+  sharedTopic?: string | null
   flashcards: Flashcard[]
 }
 
@@ -31,6 +32,7 @@ export interface GroupSummary {
   mode: GroupMode
   frontLang: string
   backLang: string
+  sharedTopic?: string | null
   flashcardCount: number
 }
 
@@ -43,6 +45,15 @@ export interface FlashcardDraft {
   exampleSentence?: string
 }
 
+export interface SharedGroupSummary {
+  id: string
+  topic: string
+  level: string
+  title: string
+  flashcardCount: number
+  cached: boolean
+}
+
 export interface AiGenerateRequest {
   topic: string
   englishLevel: string
@@ -51,4 +62,5 @@ export interface AiGenerateRequest {
   frontLang?: string
   backLang?: string
   preferences?: string
+  exclude?: string[]
 }

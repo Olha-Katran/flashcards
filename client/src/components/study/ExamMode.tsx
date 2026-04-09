@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Flashcard, GroupMode } from '../../types'
+import { LoaderDots } from '../LoaderDots'
 import { useCompleteExamMutation, useValidateAnswerMutation } from '../../services/api'
 import { normalizeAnswer } from '../../utils/string'
 import { shuffle } from '../../utils/shuffle'
@@ -121,7 +122,7 @@ export function ExamMode({
             }
           }}
         >
-          {submitting ? 'Saving…' : 'Save score'}
+          {submitting ? <><LoaderDots size="sm" /> Saving</> : 'Save score'}
         </button>
         <button
           type="button"
@@ -261,7 +262,7 @@ export function ExamMode({
             disabled={!typeVal.trim() || validating}
             onClick={handleCheckExamAnswer}
           >
-            {validating ? 'Checking…' : 'Check'}
+            {validating ? <><LoaderDots size="sm" /> Checking</> : 'Check'}
           </button>
         ) : (
           <button

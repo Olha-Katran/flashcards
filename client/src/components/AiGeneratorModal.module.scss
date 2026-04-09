@@ -11,15 +11,33 @@
 }
 
 .modal {
+  position: relative;
   width: 100%;
-  max-width: 480px;
-  max-height: 90vh;
-  overflow: auto;
+  max-width: 520px;
+  max-height: 88vh;
+  overflow: hidden;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
+}
+
+.modalInner {
   padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  max-height: 88vh;
+  scrollbar-color: var(--color-border) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+  }
 }
 
 .head {
@@ -166,13 +184,41 @@
 }
 
 .preview {
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--color-border);
-
   h3 {
     font-size: 1rem;
-    margin-bottom: 0.5rem;
+    margin: 0;
+  }
+}
+
+.previewHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.rerollAll {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: color var(--transition), border-color var(--transition);
+
+  &:hover:not(:disabled) {
+    color: var(--color-text);
+    border-color: var(--color-text-muted);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 }
 
@@ -182,16 +228,53 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
   font-size: 0.875rem;
 
   li {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
-    padding: 0.5rem 0.65rem;
+    gap: 0.1rem;
+    padding: 0.45rem 0.6rem;
     background: var(--color-bg);
     border-radius: var(--radius-sm);
+    transition: opacity 0.2s;
+  }
+}
+
+.cardRolling {
+  opacity: 0.45;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.rerollBtn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition);
+
+  &:hover:not(:disabled) {
+    color: var(--color-text);
+    background: var(--color-border);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
   }
 }
 
@@ -211,15 +294,12 @@
   color: var(--color-text-muted);
 }
 
-.more {
-  color: var(--color-text-muted);
-  font-style: italic;
-}
-
 .previewActions {
   display: flex;
   gap: 0.5rem;
   margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
 }
 
 .primary {
@@ -237,4 +317,24 @@
   border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-text);
+}
+
+.loadingOverlay {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  z-index: 10;
+  border-radius: var(--radius-lg);
+}
+
+.loadingLabel {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
 }

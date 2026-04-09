@@ -128,7 +128,8 @@ export async function generateFlashcards(
   mode: GroupMode = 'translation',
   frontLang: string = 'English',
   backLang: string = 'Ukrainian',
-  preferences?: string
+  preferences?: string,
+  exclude: string[] = []
 ): Promise<FlashcardDraft[]> {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new Error('GEMINI_API_KEY is not set')
@@ -139,9 +140,13 @@ export async function generateFlashcards(
     ? `a clear, concise English definition of the word`
     : `the ${backLang} translation of the word`
 
+  const excludeClause = exclude.length
+    ? `\nDo NOT use any of these words: ${exclude.join(', ')}. Generate completely different words.`
+    : ''
+
   const prompt = `Generate exactly ${count} ${frontLang} vocabulary flashcards about "${topic}" appropriate for ${frontLang} level ${level}.
 
-${preferences ? `User preferences: ${preferences}` : ''}
+${preferences ? `User preferences: ${preferences}` : ''}${excludeClause}
 
 Each flashcard must have:
 - "english": the ${frontLang} word or short phrase
@@ -194,6 +199,75 @@ Example: [{"english":"hello","back":"${mode === 'definition' ? 'a greeting used 
   }))
 }
 
+export async function regenerateSingle(
+  topic: string,
+  level: string,
+  mode: GroupMode = 'translation',
+  frontLang: string = 'English',
+  backLang: string = 'Ukrainian',
+  exclude: string[] = []
+): Promise<FlashcardDraft> {
+  const key = process.env.GEMINI_API_KEY
+  if (!key) throw new Error('GEMINI_API_KEY is not set')
+
+  const backKind: BackKind = mode === 'definition' ? 'meaning' : 'translation'
+  const backDescription = mode === 'definition'
+    ? `a clear, concise English definition of the word`
+    : `the ${backLang} translation of the word`
+
+  const excludeClause = exclude.length
+    ? `\nDo NOT use any of these words: ${exclude.join(', ')}.`
+    : ''
+
+  const prompt = `Generate exactly 1 ${frontLang} vocabulary flashcard about "${topic}" appropriate for ${frontLang} level ${level}.${excludeClause}
+
+The flashcard must have:
+- "english": the ${frontLang} word or short phrase
+- "back": ${backDescription}
+- "pronunciation": phonetic spelling (IPA or simplified)
+- "partOfSpeech": part of speech
+- "exampleSentence": a short example sentence using the word in ${frontLang}
+
+Return ONLY a valid JSON array with exactly one object, no extra text, no markdown, no code fences.`
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+    }),
+  })
+
+  if (!res.ok) {
+    const body = await res.text()
+    const err = new Error(`Gemini API ${res.status}: ${body}`)
+    ;(err as unknown as Record<string, number>).status = res.status
+    throw err
+  }
+
+  const data = (await res.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+  }
+
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+  if (!text) throw new Error('Empty response from Gemini')
+
+  const jsonStr = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
+  const parsed = JSON.parse(jsonStr)
+  const item = Array.isArray(parsed) ? parsed[0] : parsed
+
+  return {
+    english: String(item.english ?? ''),
+    back: String(item.back ?? ''),
+    backKind,
+    pronunciation: typeof item.pronunciation === 'string' ? item.pronunciation : undefined,
+    partOfSpeech: typeof item.partOfSpeech === 'string' ? item.partOfSpeech : undefined,
+    exampleSentence: typeof item.exampleSentence === 'string' ? item.exampleSentence : undefined,
+  }
+}
+
 export async function generateFromPdf(
   pdfBuffer: Buffer,
   level: string
@@ -213,7 +287,7 @@ Instructions:
 - Ignore UI text, random noise, or repeated words
 - Focus on useful vocabulary for learning
 - Avoid very rare or overly complex words beyond the level
-- Extract between 5 and 25 words depending on the PDF content
+- Extract between 10 and 30 words depending on the PDF content
 
 For each word provide a JSON object with:
 - "english": the English word or short phrase

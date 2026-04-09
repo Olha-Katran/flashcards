@@ -1,15 +1,19 @@
 import { Router } from 'express'
+import { requireAuth } from '../auth.js'
 import type { BackKind, FlashcardStatus, GroupMode } from '../types.js'
 import { prisma } from '../prisma.js'
 
 export const groupsRouter = Router()
 
+groupsRouter.use(requireAuth)
+
 function validMode(m: unknown): m is GroupMode {
   return m === 'translation' || m === 'definition'
 }
 
-groupsRouter.get('/', async (_req, res) => {
+groupsRouter.get('/', async (req, res) => {
   const groups = await prisma.flashcardGroup.findMany({
+    where: { userId: req.userId },
     include: { _count: { select: { flashcards: true } } },
     orderBy: { createdAt: 'desc' },
   })
@@ -21,15 +25,16 @@ groupsRouter.get('/', async (_req, res) => {
       mode: g.mode,
       frontLang: g.frontLang,
       backLang: g.backLang,
+      sharedTopic: g.sharedTopic,
       flashcardCount: g._count.flashcards,
     }))
   )
 })
 
 groupsRouter.get('/:id', async (req, res) => {
-  const g = await prisma.flashcardGroup.findUnique({
-    where: { id: req.params.id },
-    include: { flashcards: true },
+  const g = await prisma.flashcardGroup.findFirst({
+    where: { id: req.params.id, userId: req.userId },
+    include: { flashcards: { orderBy: { id: 'asc' } } },
   })
   if (!g) return res.status(404).json({ error: 'Group not found' })
   res.json(g)
@@ -64,6 +69,7 @@ groupsRouter.post('/', async (req, res) => {
       backLang: typeof backLang === 'string' && backLang.trim()
         ? backLang.trim()
         : groupMode === 'definition' ? 'English' : 'Ukrainian',
+      userId: req.userId!,
       flashcards: {
         create: cards.map((c) => ({
           english: c.english,
@@ -75,16 +81,16 @@ groupsRouter.post('/', async (req, res) => {
         })),
       },
     },
-    include: { flashcards: true },
+    include: { flashcards: { orderBy: { id: 'asc' } } },
   })
 
   res.status(201).json(group)
 })
 
 groupsRouter.put('/:id', async (req, res) => {
-  const existing = await prisma.flashcardGroup.findUnique({
-    where: { id: req.params.id },
-    include: { flashcards: true },
+  const existing = await prisma.flashcardGroup.findFirst({
+    where: { id: req.params.id, userId: req.userId },
+    include: { flashcards: { orderBy: { id: 'asc' } } },
   })
   if (!existing) return res.status(404).json({ error: 'Group not found' })
 
@@ -161,26 +167,27 @@ groupsRouter.put('/:id', async (req, res) => {
   const updated = await prisma.flashcardGroup.update({
     where: { id: req.params.id },
     data: groupUpdate,
-    include: { flashcards: true },
+    include: { flashcards: { orderBy: { id: 'asc' } } },
   })
 
   res.json(updated)
 })
 
 groupsRouter.delete('/:id', async (req, res) => {
-  try {
-    await prisma.flashcardGroup.delete({ where: { id: req.params.id } })
-    res.status(204).send()
-  } catch {
-    res.status(404).json({ error: 'Group not found' })
-  }
+  const existing = await prisma.flashcardGroup.findFirst({
+    where: { id: req.params.id, userId: req.userId },
+  })
+  if (!existing) return res.status(404).json({ error: 'Group not found' })
+
+  await prisma.flashcardGroup.delete({ where: { id: req.params.id } })
+  res.status(204).send()
 })
 
 groupsRouter.patch('/:groupId/flashcards/:cardId', async (req, res) => {
   const { groupId, cardId } = req.params
   const { status } = req.body as { status?: string }
 
-  const group = await prisma.flashcardGroup.findUnique({ where: { id: groupId } })
+  const group = await prisma.flashcardGroup.findFirst({ where: { id: groupId, userId: req.userId } })
   if (!group) return res.status(404).json({ error: 'Group not found' })
 
   const card = await prisma.flashcard.findFirst({
@@ -205,9 +212,9 @@ groupsRouter.post('/:id/exam/complete', async (req, res) => {
     return res.status(400).json({ error: 'score must be a number between 0 and 1' })
   }
 
-  const g = await prisma.flashcardGroup.findUnique({
-    where: { id: req.params.id },
-    include: { flashcards: true },
+  const g = await prisma.flashcardGroup.findFirst({
+    where: { id: req.params.id, userId: req.userId },
+    include: { flashcards: { orderBy: { id: 'asc' } } },
   })
   if (!g) return res.status(404).json({ error: 'Group not found' })
 
@@ -219,9 +226,9 @@ groupsRouter.post('/:id/exam/complete', async (req, res) => {
     })
   }
 
-  const updated = await prisma.flashcardGroup.findUnique({
-    where: { id: req.params.id },
-    include: { flashcards: true },
+  const updated = await prisma.flashcardGroup.findFirst({
+    where: { id: req.params.id, userId: req.userId },
+    include: { flashcards: { orderBy: { id: 'asc' } } },
   })
 
   res.json({ group: updated, passed })

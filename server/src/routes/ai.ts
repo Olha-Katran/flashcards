@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import multer from 'multer'
-import { generateFlashcards, generateFromPdf, validateAnswer } from '../gemini.js'
+import { generateFlashcards, generateFromPdf, regenerateSingle, validateAnswer } from '../gemini.js'
 import type { AiGenerateBody, GroupMode } from '../types.js'
 
 export const aiRouter = Router()
@@ -53,7 +53,7 @@ aiRouter.post('/validate-answer', async (req, res) => {
 })
 
 aiRouter.post('/generate', async (req, res) => {
-  const body = req.body as Partial<AiGenerateBody>
+  const body = req.body as Partial<AiGenerateBody> & { exclude?: string[] }
   const topic = typeof body.topic === 'string' ? body.topic.trim() : ''
   const englishLevel = typeof body.englishLevel === 'string' ? body.englishLevel.trim() : 'B1'
   const count = typeof body.count === 'number' ? body.count : 10
@@ -63,6 +63,7 @@ aiRouter.post('/generate', async (req, res) => {
   const backLang = typeof body.backLang === 'string' && body.backLang.trim()
     ? body.backLang.trim()
     : groupMode === 'definition' ? 'English' : 'Ukrainian'
+  const exclude = Array.isArray(body.exclude) ? body.exclude : []
 
   if (!topic) {
     return res.status(400).json({ error: 'topic is required' })
@@ -76,7 +77,7 @@ aiRouter.post('/generate', async (req, res) => {
   }
 
   try {
-    const flashcards = await generateFlashcards(topic, englishLevel, count, groupMode, frontLang, backLang, preferences)
+    const flashcards = await generateFlashcards(topic, englishLevel, count, groupMode, frontLang, backLang, preferences, exclude)
     res.json({ flashcards })
   } catch (err: unknown) {
     const status = (err as { status?: number }).status
@@ -90,6 +91,47 @@ aiRouter.post('/generate', async (req, res) => {
     }
 
     console.error('Gemini generate error:', msg)
+    return res.status(502).json({ error: 'AI generation failed. Please try again.' })
+  }
+})
+
+aiRouter.post('/regenerate-one', async (req, res) => {
+  const { topic, englishLevel, mode, frontLang, backLang, exclude } = req.body as {
+    topic?: string
+    englishLevel?: string
+    mode?: string
+    frontLang?: string
+    backLang?: string
+    exclude?: string[]
+  }
+
+  if (!topic || typeof topic !== 'string') {
+    return res.status(400).json({ error: 'topic is required' })
+  }
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server' })
+  }
+
+  const groupMode: GroupMode = mode === 'definition' ? 'definition' : 'translation'
+
+  try {
+    const card = await regenerateSingle(
+      topic.trim(),
+      typeof englishLevel === 'string' ? englishLevel.trim() : 'B1',
+      groupMode,
+      typeof frontLang === 'string' ? frontLang.trim() : 'English',
+      typeof backLang === 'string' ? backLang.trim() : 'Ukrainian',
+      Array.isArray(exclude) ? exclude : []
+    )
+    res.json({ card })
+  } catch (err: unknown) {
+    const status = (err as { status?: number }).status
+    const msg = err instanceof Error ? err.message : String(err)
+
+    if (status === 429 || msg.toLowerCase().includes('quota')) {
+      return res.status(429).json({ error: 'Rate limit reached. Please wait a moment and try again.' })
+    }
+    console.error('Gemini regenerate-one error:', msg)
     return res.status(502).json({ error: 'AI generation failed. Please try again.' })
   }
 })
