@@ -4,11 +4,10 @@ import { createRoot } from 'react-dom/client'
 import { Provider } from 'react-redux'
 import { store } from './app/store'
 import { AuthProvider, useAuth } from './auth/AuthContext'
+import { GOOGLE_OAUTH_CLIENT_ID, hasGoogleOAuthClientId } from './config/publicEnv'
 import { ThemeProvider, useTheme } from './theme/ThemeContext'
 import './styles/global.scss'
 import App from './App.tsx'
-
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
 
 function ThemeAuthSync() {
   const { user } = useAuth()
@@ -17,17 +16,25 @@ function ThemeAuthSync() {
   return null
 }
 
+const appShell = (
+  <Provider store={store}>
+    <AuthProvider>
+      <ThemeProvider>
+        <ThemeAuthSync />
+        <App />
+      </ThemeProvider>
+    </AuthProvider>
+  </Provider>
+)
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <Provider store={store}>
-        <AuthProvider>
-          <ThemeProvider>
-            <ThemeAuthSync />
-            <App />
-          </ThemeProvider>
-        </AuthProvider>
-      </Provider>
-    </GoogleOAuthProvider>
+    {hasGoogleOAuthClientId ? (
+      <GoogleOAuthProvider clientId={GOOGLE_OAUTH_CLIENT_ID}>
+        {appShell}
+      </GoogleOAuthProvider>
+    ) : (
+      appShell
+    )}
   </StrictMode>,
 )

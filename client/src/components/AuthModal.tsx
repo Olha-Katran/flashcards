@@ -1,5 +1,6 @@
 import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../auth/AuthContext'
+import { hasGoogleOAuthClientId } from '../config/publicEnv'
 import { LoaderDots } from './LoaderDots'
 import styles from './AuthModal.module.scss'
 
@@ -36,7 +37,7 @@ export function AuthModal({ open, onClose }: Props) {
         <div className={styles.provider}>
           {loading ? (
             <p className={styles.loading}><LoaderDots /> Signing in</p>
-          ) : (
+          ) : hasGoogleOAuthClientId ? (
             <GoogleLogin
               onSuccess={(response) => {
                 if (response.credential) {
@@ -49,6 +50,12 @@ export function AuthModal({ open, onClose }: Props) {
               theme="filled_black"
               shape="pill"
             />
+          ) : (
+            <p className={styles.configWarning}>
+              Google Sign-In is not configured for this build. Add{' '}
+              <code>VITE_GOOGLE_CLIENT_ID</code> in Vercel → Environment Variables (Production),
+              then redeploy so the client bundle includes your Web OAuth client ID.
+            </p>
           )}
         </div>
 

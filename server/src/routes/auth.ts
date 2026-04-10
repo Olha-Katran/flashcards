@@ -27,7 +27,10 @@ authRouter.post('/google', async (req, res) => {
 
   if (!clientId || !googleClient) {
     console.error('auth/google: GOOGLE_CLIENT_ID is missing or empty on the server')
-    return res.status(503).json({ error: 'Server Google auth is not configured' })
+    return res.status(503).json({
+      error:
+        'GOOGLE_CLIENT_ID is not set on the API. In Vercel: open your backend (server) project → Settings → Environment Variables → Production → add GOOGLE_CLIENT_ID with the same Web OAuth client ID as VITE_GOOGLE_CLIENT_ID on the frontend, then redeploy the API.',
+    })
   }
 
   const { credential } = req.body as { credential?: string }
