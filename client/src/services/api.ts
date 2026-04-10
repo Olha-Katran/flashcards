@@ -16,6 +16,7 @@ export const flashcardsApi = createApi({
   reducerPath: 'flashcardsApi',
   baseQuery: fetchBaseQuery({
     baseUrl: `${baseUrl}/api`,
+    credentials: 'include',
     prepareHeaders: (headers) => {
       const token = getStoredToken()
       if (token) headers.set('Authorization', `Bearer ${token}`)
