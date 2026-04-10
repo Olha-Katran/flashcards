@@ -5,27 +5,57 @@ import { signToken } from '../auth.js'
 
 export const authRouter = Router()
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ''
-const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID)
+function getGoogleClientId(): string {
+  return (process.env.GOOGLE_CLIENT_ID ?? '').trim()
+}
 
+function getGoogleClient() {
+  const id = getGoogleClientId()
+  return id ? new OAuth2Client(id) : null
+}
+
+/**
+ * Google Sign-In (button / One Tap) sends a JWT `credential` from the browser.
+ * Its `aud` claim must match this exact Web client ID — the same value as the
+ * frontend’s VITE_GOOGLE_CLIENT_ID. There is no server redirect/callback URL
+ * for this flow; in Google Cloud Console use Authorized JavaScript origins
+ * (e.g. https://your-frontend.vercel.app), not localhost for production.
+ */
 authRouter.post('/google', async (req, res) => {
+  const clientId = getGoogleClientId()
+  const googleClient = getGoogleClient()
+
+  if (!clientId || !googleClient) {
+    console.error('auth/google: GOOGLE_CLIENT_ID is missing or empty on the server')
+    return res.status(503).json({ error: 'Server Google auth is not configured' })
+  }
+
   const { credential } = req.body as { credential?: string }
 
   if (!credential) {
     return res.status(400).json({ error: 'Google credential is required' })
   }
 
+  type GoogleIdPayload = { sub: string; email: string; name?: string; picture?: string }
+  let payload: GoogleIdPayload
+
   try {
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
-      audience: GOOGLE_CLIENT_ID,
+      audience: clientId,
     })
-    const payload = ticket.getPayload()
-
-    if (!payload || !payload.sub || !payload.email) {
+    const p = ticket.getPayload()
+    if (!p?.sub || !p.email) {
       return res.status(400).json({ error: 'Invalid Google token' })
     }
+    payload = { sub: p.sub, email: p.email, name: p.name ?? undefined, picture: p.picture ?? undefined }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('auth/google: verifyIdToken failed (check GOOGLE_CLIENT_ID matches VITE_GOOGLE_CLIENT_ID):', msg)
+    return res.status(401).json({ error: 'Google authentication failed' })
+  }
 
+  try {
     const user = await prisma.user.upsert({
       where: { googleId: payload.sub },
       update: {
@@ -53,8 +83,8 @@ authRouter.post('/google', async (req, res) => {
       },
     })
   } catch (err) {
-    console.error('Google auth error:', err)
-    res.status(401).json({ error: 'Google authentication failed' })
+    console.error('auth/google: database error during upsert:', err)
+    return res.status(500).json({ error: 'Could not save user' })
   }
 })
 

@@ -8,7 +8,8 @@
     "build": "prisma generate && tsc",
     "postinstall": "prisma generate",
     "start": "node .build/index.js",
-    "seed:shared": "tsx src/seed-shared.ts"
+    "seed:shared": "tsx src/seed-shared.ts",
+    "deploy:vercel": "vercel --prod --yes"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

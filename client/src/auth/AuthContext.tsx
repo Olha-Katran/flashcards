@@ -100,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [API_URL])
 
   const logout = useCallback(() => {
     store.dispatch(flashcardsApi.util.resetApiState())
