@@ -1,6 +1,6 @@
-import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../auth/AuthContext'
 import { hasGoogleOAuthClientId } from '../config/publicEnv'
+import { GoogleSignInButton } from './GoogleSignInButton'
 import { LoaderDots } from './LoaderDots'
 import styles from './AuthModal.module.scss'
 
@@ -38,17 +38,9 @@ export function AuthModal({ open, onClose }: Props) {
           {loading ? (
             <p className={styles.loading}><LoaderDots /> Signing in</p>
           ) : hasGoogleOAuthClientId ? (
-            <GoogleLogin
-              onSuccess={(response) => {
-                if (response.credential) {
-                  handleSuccess(response.credential)
-                }
-              }}
-              onError={() => alert('Google login failed')}
-              size="large"
-              width="320"
-              theme="filled_black"
-              shape="pill"
+            <GoogleSignInButton
+              onSuccess={(credential) => handleSuccess(credential)}
+              onError={() => alert('Google Sign-In failed. If you see origin errors, add this URL to Google Cloud → OAuth client → Authorized JavaScript origins: ' + window.location.origin)}
             />
           ) : (
             <p className={styles.configWarning}>
