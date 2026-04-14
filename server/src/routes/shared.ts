@@ -51,40 +51,66 @@ sharedRouter.get('/', async (req, res) => {
 })
 
 // Generates (if not cached) and copies a shared group to the user's collection.
+// Fully try/catch: unhandled rejections on Vercel often return a raw error with no CORS headers,
+// which the browser reports as a CORS failure even when the real issue is Gemini/DB/timeout.
 sharedRouter.post('/start', requireAuth, async (req, res) => {
   const { topic } = req.body as { topic?: string }
   const level = String(req.body.level || 'B1').toUpperCase()
 
-  if (!topic || !SHARED_TOPICS.includes(topic)) {
-    return res.status(400).json({ error: 'Invalid topic' })
-  }
-  if (!VALID_LEVELS.has(level)) {
-    return res.status(400).json({ error: 'Invalid level' })
-  }
+  try {
+    if (!topic || !SHARED_TOPICS.includes(topic)) {
+      return res.status(400).json({ error: 'Invalid topic' })
+    }
+    if (!VALID_LEVELS.has(level)) {
+      return res.status(400).json({ error: 'Invalid level' })
+    }
 
-  const alreadyCopied = await prisma.flashcardGroup.findFirst({
-    where: { userId: req.userId, sharedTopic: topic },
-    include: { flashcards: true },
-  })
-  if (alreadyCopied) return res.json(alreadyCopied)
+    const alreadyCopied = await prisma.flashcardGroup.findFirst({
+      where: { userId: req.userId, sharedTopic: topic },
+      include: { flashcards: true },
+    })
+    if (alreadyCopied) return res.json(alreadyCopied)
 
-  let shared = await prisma.sharedGroup.findUnique({
-    where: { topic_level: { topic, level } },
-    include: { flashcards: true },
-  })
+    let shared = await prisma.sharedGroup.findUnique({
+      where: { topic_level: { topic, level } },
+      include: { flashcards: true },
+    })
 
-  if (!shared) {
-    const cards = await generateFlashcards(
-      topic, level, WORDS_PER_GROUP,
-      'translation', 'English', 'Ukrainian',
-    )
-    shared = await prisma.sharedGroup.create({
+    if (!shared) {
+      const cards = await generateFlashcards(
+        topic, level, WORDS_PER_GROUP,
+        'translation', 'English', 'Ukrainian',
+      )
+      shared = await prisma.sharedGroup.create({
+        data: {
+          topic,
+          level,
+          title: titleCase(topic),
+          flashcards: {
+            create: cards.map((c) => ({
+              english: c.english,
+              back: c.back,
+              backKind: c.backKind,
+              pronunciation: c.pronunciation,
+              partOfSpeech: c.partOfSpeech,
+              exampleSentence: c.exampleSentence,
+            })),
+          },
+        },
+        include: { flashcards: true },
+      })
+    }
+
+    const group = await prisma.flashcardGroup.create({
       data: {
-        topic,
-        level,
-        title: titleCase(topic),
+        title: shared.title,
+        mode: 'translation',
+        frontLang: 'English',
+        backLang: 'Ukrainian',
+        sharedTopic: topic,
+        userId: req.userId!,
         flashcards: {
-          create: cards.map((c) => ({
+          create: shared.flashcards.map((c) => ({
             english: c.english,
             back: c.back,
             backKind: c.backKind,
@@ -96,31 +122,24 @@ sharedRouter.post('/start', requireAuth, async (req, res) => {
       },
       include: { flashcards: true },
     })
+
+    return res.status(201).json(group)
+  } catch (err: unknown) {
+    const status = (err as { status?: number }).status
+    const msg = err instanceof Error ? err.message : String(err)
+
+    if (status === 429 || msg.toLowerCase().includes('quota')) {
+      return res.status(429).json({ error: 'Rate limit reached. Please wait and try again.' })
+    }
+    if (status === 401 || status === 403 || msg.includes('API key')) {
+      return res.status(502).json({ error: 'AI service configuration error.' })
+    }
+
+    console.error('shared-groups/start:', msg)
+    return res.status(502).json({
+      error: 'Could not start this topic. Please try again.',
+    })
   }
-
-  const group = await prisma.flashcardGroup.create({
-    data: {
-      title: shared.title,
-      mode: 'translation',
-      frontLang: 'English',
-      backLang: 'Ukrainian',
-      sharedTopic: topic,
-      userId: req.userId!,
-      flashcards: {
-        create: shared.flashcards.map((c) => ({
-          english: c.english,
-          back: c.back,
-          backKind: c.backKind,
-          pronunciation: c.pronunciation,
-          partOfSpeech: c.partOfSpeech,
-          exampleSentence: c.exampleSentence,
-        })),
-      },
-    },
-    include: { flashcards: true },
-  })
-
-  res.status(201).json(group)
 })
 
 sharedRouter.post('/update-level', requireAuth, async (req, res) => {

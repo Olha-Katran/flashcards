@@ -1,4 +1,5 @@
 import type { CorsOptions } from 'cors'
+import type { Request, Response } from 'express'
 
 /**
  * Parse comma-separated origins (FRONTEND_URL="https://a.app,https://b.app").
@@ -28,6 +29,38 @@ function isVercelAppOrigin(origin: string): boolean {
 }
 
 /**
+ * Same rules as CORS middleware — use for error responses so browsers don't show a fake "CORS" error
+ * when the real problem was an uncaught exception or platform timeout without CORS headers.
+ */
+export function isOriginAllowed(origin: string | undefined): boolean {
+  if (!origin) return true
+
+  const explicit = [
+    ...parseOriginList(process.env.FRONTEND_URL),
+    ...parseOriginList(process.env.CLIENT_ORIGIN),
+  ]
+  const allowVercelApp = process.env.CORS_ALLOW_VERCEL_PREVIEWS !== 'false'
+
+  const isProd = process.env.NODE_ENV === 'production'
+  const allowLocalhostDefault = !isProd || process.env.CORS_ALLOW_LOCALHOST === 'true'
+  const allowLocalhost = process.env.CORS_ALLOW_LOCALHOST === 'false' ? false : allowLocalhostDefault
+
+  if (explicit.includes(origin)) return true
+  if (allowLocalhost && isLocalhostOrigin(origin)) return true
+  if (allowVercelApp && isVercelAppOrigin(origin)) return true
+  return false
+}
+
+/** Set ACAO on error responses when the request Origin is allowed (pairs with credentials: true). */
+export function applyCorsToErrorResponse(req: Request, res: Response): void {
+  const origin = req.headers.origin
+  if (typeof origin !== 'string' || !isOriginAllowed(origin)) return
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+  res.setHeader('Vary', 'Origin')
+}
+
+/**
  * CORS for browser clients (Vite app on Vercel + local dev).
  *
  * Env (backend / Vercel server project):
@@ -39,38 +72,16 @@ function isVercelAppOrigin(origin: string): boolean {
  *   Set to "true" to allow http://localhost:* / 127.0.0.1 against deployed API (local dev hitting prod API).
  */
 export function buildCorsOptions(): CorsOptions {
-  const explicit = [
-    ...parseOriginList(process.env.FRONTEND_URL),
-    ...parseOriginList(process.env.CLIENT_ORIGIN),
-  ]
-  const allowVercelApp = process.env.CORS_ALLOW_VERCEL_PREVIEWS !== 'false'
-
-  const isProd = process.env.NODE_ENV === 'production'
-  const allowLocalhostDefault = !isProd || process.env.CORS_ALLOW_LOCALHOST === 'true'
-  const allowLocalhost = process.env.CORS_ALLOW_LOCALHOST === 'false' ? false : allowLocalhostDefault
-
   return {
     origin(origin, callback) {
       if (!origin) {
         callback(null, true)
         return
       }
-
-      if (explicit.includes(origin)) {
+      if (isOriginAllowed(origin)) {
         callback(null, true)
         return
       }
-
-      if (allowLocalhost && isLocalhostOrigin(origin)) {
-        callback(null, true)
-        return
-      }
-
-      if (allowVercelApp && isVercelAppOrigin(origin)) {
-        callback(null, true)
-        return
-      }
-
       console.warn(`[cors] blocked origin: ${origin}`)
       callback(null, false)
     },

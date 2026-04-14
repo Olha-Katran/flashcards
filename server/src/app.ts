@@ -1,7 +1,8 @@
 import cors from 'cors'
 import express from 'express'
+import type { NextFunction, Request, Response } from 'express'
 import { optionalAuth } from './auth.js'
-import { buildCorsOptions } from './cors.js'
+import { applyCorsToErrorResponse, buildCorsOptions } from './cors.js'
 import { aiRouter } from './routes/ai.js'
 import { authRouter } from './routes/auth.js'
 import { groupsRouter } from './routes/groups.js'
@@ -26,5 +27,12 @@ app.use('/api/auth', authRouter)
 app.use('/api/groups', groupsRouter)
 app.use('/api/ai', aiRouter)
 app.use('/api/shared-groups', sharedRouter)
+
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  applyCorsToErrorResponse(req, res)
+  if (res.headersSent) return
+  console.error('[express]', err)
+  res.status(500).json({ error: 'Internal server error' })
+})
 
 export default app
