@@ -21,6 +21,7 @@ model FlashcardGroup {
   title       String
   groupStatus String      @default("in_progress")
   mode        String      @default("translation")
+  contentKind String      @default("vocabulary")
   frontLang   String      @default("English")
   backLang    String      @default("Ukrainian")
   sharedTopic String?

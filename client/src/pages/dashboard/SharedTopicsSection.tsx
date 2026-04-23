@@ -11,6 +11,8 @@ type Props = {
   user: AuthUser | null
   startingTopic: string | null
   onStartTopic: (topic: string) => void
+  /** When search filtered out all topics but some existed before filtering */
+  showEmptySearch?: boolean
 }
 
 export function SharedTopicsSection({
@@ -19,8 +21,26 @@ export function SharedTopicsSection({
   user,
   startingTopic,
   onStartTopic,
+  showEmptySearch,
 }: Props) {
-  if (topics.length === 0) return null
+  if (topics.length === 0) {
+    if (!showEmptySearch) return null
+    return (
+      <section className={styles.sharedSection}>
+        <div className={styles.sharedHead}>
+          <h2 className={styles.sharedTitle}>
+            <Link to="/starter-pack" className={styles.sharedTitleLink}>
+              Vocabulary topics
+            </Link>
+          </h2>
+          <span className={styles.levelBadge}>{level}</span>
+        </div>
+        <p className={styles.searchEmpty} role="status">
+          No vocabulary topics match your search.
+        </p>
+      </section>
+    )
+  }
 
   return (
     <section className={styles.sharedSection}>

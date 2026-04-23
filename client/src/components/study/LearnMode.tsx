@@ -191,6 +191,8 @@ export function LearnMode({
             <button type="button" className={styles.speakSmall} onClick={() => speak(card.english, frontLang)} aria-label="Listen">🔊</button>
           </div>
           <input
+            id="learn-mode-type-answer"
+            name="answer"
             className={styles.input}
             value={typeVal}
             onChange={(e) => {

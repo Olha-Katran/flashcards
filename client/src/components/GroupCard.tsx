@@ -27,6 +27,7 @@ export function GroupCard({
         </span>
       </div>
       <p className={styles.meta}>
+        {(group.contentKind ?? 'vocabulary') === 'phrasal_verbs' ? 'Phrasal verbs' : 'Vocabulary'} ·{' '}
         {group.flashcardCount} cards ·{' '}
         {group.mode === 'definition'
           ? `${group.frontLang} definitions`

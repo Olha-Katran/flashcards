@@ -4,7 +4,7 @@ export const swaggerDocument = {
     title: 'Flashcards API',
     version: '1.1.0',
     description:
-      'REST API for vocabulary flashcards app. Supports translation (any language pair) and definition modes. AI generation and validation powered by Google Gemini.',
+      'REST API for vocabulary flashcards app. Supports translation (any language pair) and definition modes. AI generation and validation use OpenAI (default `gpt-5.4-mini`; set `OPENAI_MODEL` to override).',
   },
   servers: [
     {
@@ -17,7 +17,7 @@ export const swaggerDocument = {
     { name: 'Groups', description: 'CRUD operations for flashcard groups' },
     { name: 'Flashcards', description: 'Update individual flashcards' },
     { name: 'Exam', description: 'Submit exam scores' },
-    { name: 'AI', description: 'Generate flashcards and validate answers via Google Gemini' },
+    { name: 'AI', description: 'Generate flashcards and validate answers via OpenAI' },
   ],
   paths: {
     '/health': {
@@ -267,7 +267,7 @@ export const swaggerDocument = {
         tags: ['AI'],
         summary: 'Generate flashcards with AI',
         description:
-          'Calls Google Gemini to generate vocabulary flashcards. Supports translation (any language pair) and definition modes.',
+          'Calls OpenAI to generate vocabulary flashcards. Supports translation (any language pair) and definition modes.',
         requestBody: {
           required: true,
           content: {
@@ -327,7 +327,7 @@ export const swaggerDocument = {
             },
           },
           '429': {
-            description: 'Gemini rate limit exceeded',
+            description: 'OpenAI rate limit exceeded',
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/Error' },
@@ -335,7 +335,7 @@ export const swaggerDocument = {
             },
           },
           '500': {
-            description: 'GEMINI_API_KEY not configured',
+            description: 'OPENAI_API_KEY not configured',
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/Error' },
@@ -343,7 +343,7 @@ export const swaggerDocument = {
             },
           },
           '502': {
-            description: 'Gemini returned an unexpected response',
+            description: 'OpenAI returned an unexpected response',
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/Error' },
@@ -358,7 +358,7 @@ export const swaggerDocument = {
         tags: ['AI'],
         summary: 'Validate a typed answer',
         description:
-          'Checks if the user answer is close enough to the correct answer. Uses exact match, then Levenshtein distance for typos, then Gemini AI for synonyms/alternative translations. Supports both translation and definition modes.',
+          'Checks if the user answer is close enough to the correct answer. Uses exact match, then Levenshtein distance for typos, then OpenAI for synonyms/alternative translations. Supports both translation and definition modes.',
         requestBody: {
           required: true,
           content: {
@@ -395,7 +395,7 @@ export const swaggerDocument = {
           },
           '400': { $ref: '#/components/responses/BadRequest' },
           '429': {
-            description: 'Gemini rate limit (falls back to strict)',
+            description: 'OpenAI rate limit (falls back to strict)',
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/Error' },

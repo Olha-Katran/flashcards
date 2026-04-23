@@ -1,6 +1,7 @@
 import cors from 'cors'
 import express from 'express'
 import type { NextFunction, Request, Response } from 'express'
+import swaggerUi from 'swagger-ui-express'
 import { optionalAuth } from './auth.js'
 import { applyCorsToErrorResponse, buildCorsOptions } from './cors.js'
 import { aiRouter } from './routes/ai.js'
@@ -19,9 +20,21 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true })
 })
 
-app.get('/api-docs', (_req, res) => {
+app.get('/openapi.json', (_req, res) => {
   res.json(swaggerDocument)
 })
+
+app.use(
+  '/api-docs',
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerDocument, {
+    customSiteTitle: 'Flashcards API — Swagger',
+    swaggerOptions: {
+      persistAuthorization: true,
+      displayRequestDuration: true,
+    },
+  })
+)
 
 app.use('/api/auth', authRouter)
 app.use('/api/groups', groupsRouter)

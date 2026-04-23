@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { FiArrowLeft, FiLogOut, FiUser } from 'react-icons/fi'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { FiArrowLeft, FiLogOut, FiSearch, FiUser } from 'react-icons/fi'
 import { useAuth } from '../auth/AuthContext'
 import { useGetGroupQuery } from '../services/api'
 import { useTheme, THEMES } from '../theme/ThemeContext'
+import { DASHBOARD_SEARCH_QUERY_PARAM } from '../utils/dashboardSearch'
 import { AuthModal } from './AuthModal'
 import { ThemeToggle } from './ThemeToggle'
 import styles from './Header.module.scss'
@@ -154,9 +155,19 @@ export function Header() {
   const [authOpen, setAuthOpen] = useState(false)
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const isDashboard = pathname === '/'
   const pageTitle = usePageTitle()
+
+  const dashboardSearchValue = searchParams.get(DASHBOARD_SEARCH_QUERY_PARAM) ?? ''
+
+  const setDashboardSearch = (value: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (value) next.set(DASHBOARD_SEARCH_QUERY_PARAM, value)
+    else next.delete(DASHBOARD_SEARCH_QUERY_PARAM)
+    setSearchParams(next, { replace: true })
+  }
 
   return (
     <>
@@ -171,7 +182,19 @@ export function Header() {
                 <rect className={styles.logoLine} x="8" y="15" width="6" height="1.5" rx="0.75" />
               </svg>
             </Link>
-            <div className={styles.headerSpacer} aria-hidden />
+            <label className={styles.dashboardSearch}>
+              <FiSearch className={styles.dashboardSearchIcon} size={18} aria-hidden />
+              <input
+                type="search"
+                className={styles.dashboardSearchInput}
+                value={dashboardSearchValue}
+                onChange={(e) => setDashboardSearch(e.target.value)}
+                placeholder="Search decks & topics"
+                aria-label="Search your decks and vocabulary topics"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
           </>
         ) : (
           <>

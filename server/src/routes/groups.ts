@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { requireAuth } from '../auth.js'
-import type { BackKind, FlashcardStatus, GroupMode } from '../types.js'
+import type { BackKind, ContentKind, FlashcardStatus, GroupMode } from '../types.js'
 import { prisma } from '../prisma.js'
 
 export const groupsRouter = Router()
@@ -9,6 +9,10 @@ groupsRouter.use(requireAuth)
 
 function validMode(m: unknown): m is GroupMode {
   return m === 'translation' || m === 'definition'
+}
+
+function validContentKind(m: unknown): m is ContentKind {
+  return m === 'vocabulary' || m === 'phrasal_verbs'
 }
 
 groupsRouter.get('/', async (req, res) => {
@@ -23,6 +27,7 @@ groupsRouter.get('/', async (req, res) => {
       title: g.title,
       groupStatus: g.groupStatus,
       mode: g.mode,
+      contentKind: g.contentKind,
       frontLang: g.frontLang,
       backLang: g.backLang,
       sharedTopic: g.sharedTopic,
@@ -41,7 +46,7 @@ groupsRouter.get('/:id', async (req, res) => {
 })
 
 groupsRouter.post('/', async (req, res) => {
-  const { title, flashcards: rawCards, mode, frontLang, backLang } = req.body as {
+  const { title, flashcards: rawCards, mode, contentKind, frontLang, backLang } = req.body as {
     title?: string
     flashcards?: Array<{
       english: string
@@ -52,6 +57,7 @@ groupsRouter.post('/', async (req, res) => {
       exampleSentence?: string
     }>
     mode?: string
+    contentKind?: string
     frontLang?: string
     backLang?: string
   }
@@ -59,12 +65,14 @@ groupsRouter.post('/', async (req, res) => {
     return res.status(400).json({ error: 'title is required' })
   }
   const groupMode: GroupMode = validMode(mode) ? mode : 'translation'
+  const ck: ContentKind = validContentKind(contentKind) ? contentKind : 'vocabulary'
   const cards = Array.isArray(rawCards) ? rawCards : []
 
   const group = await prisma.flashcardGroup.create({
     data: {
       title: title.trim(),
       mode: groupMode,
+      contentKind: ck,
       frontLang: typeof frontLang === 'string' && frontLang.trim() ? frontLang.trim() : 'English',
       backLang: typeof backLang === 'string' && backLang.trim()
         ? backLang.trim()
@@ -94,7 +102,7 @@ groupsRouter.put('/:id', async (req, res) => {
   })
   if (!existing) return res.status(404).json({ error: 'Group not found' })
 
-  const { title, flashcards: rawCards, mode, frontLang, backLang } = req.body as {
+  const { title, flashcards: rawCards, mode, contentKind, frontLang, backLang } = req.body as {
     title?: string
     flashcards?: Array<{
       id?: string
@@ -107,6 +115,7 @@ groupsRouter.put('/:id', async (req, res) => {
       exampleSentence?: string
     }>
     mode?: string
+    contentKind?: string
     frontLang?: string
     backLang?: string
   }
@@ -118,6 +127,7 @@ groupsRouter.put('/:id', async (req, res) => {
   const groupUpdate: Record<string, unknown> = {}
   if (title !== undefined) groupUpdate.title = title.trim()
   if (validMode(mode)) groupUpdate.mode = mode
+  if (validContentKind(contentKind)) groupUpdate.contentKind = contentKind
   if (typeof frontLang === 'string' && frontLang.trim()) groupUpdate.frontLang = frontLang.trim()
   if (typeof backLang === 'string' && backLang.trim()) groupUpdate.backLang = backLang.trim()
 

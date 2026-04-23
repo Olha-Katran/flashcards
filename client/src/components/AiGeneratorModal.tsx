@@ -1,38 +1,51 @@
 import { useEffect, useRef, useState } from 'react'
-import { FiRefreshCw } from 'react-icons/fi'
-import type { FlashcardDraft, GroupMode } from '../types'
-import { useGenerateAiMutation, useGenerateFromPdfMutation, useRegenerateOneMutation } from '../services/api'
+import { FiRefreshCw, FiUpload } from 'react-icons/fi'
+import type { ContentKind, FlashcardDraft, GroupMode } from '../types'
+import sourceIconImage from '../assets/sourceType/Lifestyle Tritone Icons.svg'
+import sourceIconTopic from '../assets/sourceType/Tritone Icons Collection.svg'
+import sourceIconPdf from '../assets/sourceType/Vercel Security Checkpoint.svg'
+import { useGenerateAiMutation, useGenerateFromImageMutation, useGenerateFromPdfMutation, useRegenerateOneMutation } from '../services/api'
 import { LEVELS, LANGUAGES } from '../constants'
 import { useEnglishLevel } from '../hooks/useEnglishLevel'
 import { LoaderDots } from './LoaderDots'
 import styles from './AiGeneratorModal.module.scss'
 
-type Source = 'topic' | 'pdf'
+type Source = 'topic' | 'pdf' | 'image'
+
+function wordCountForApi(raw: string): number {
+  const n = parseInt(raw.trim(), 10)
+  if (Number.isNaN(n)) return 8
+  return Math.min(30, Math.max(1, n))
+}
 
 export function AiGeneratorModal({
   open,
   onClose,
   onApply,
   mode: initialMode = 'translation',
+  contentKind: initialContentKind = 'vocabulary',
   frontLang: initialFrontLang = 'English',
   backLang: initialBackLang = 'Ukrainian',
 }: {
   open: boolean
   onClose: () => void
-  onApply: (cards: FlashcardDraft[], mode: GroupMode, frontLang: string, backLang: string) => void
+  onApply: (cards: FlashcardDraft[], mode: GroupMode, frontLang: string, backLang: string, contentKind: ContentKind) => void
   mode?: GroupMode
+  contentKind?: ContentKind
   frontLang?: string
   backLang?: string
 }) {
   const { level: userLevel } = useEnglishLevel()
+  const [contentKind, setContentKind] = useState<ContentKind>(initialContentKind)
   const [source, setSource] = useState<Source>('topic')
   const [topic, setTopic] = useState('')
   const [englishLevel, setEnglishLevel] = useState(userLevel)
-  const [count, setCount] = useState(8)
+  const [countInput, setCountInput] = useState('8')
   const [preferences, setPreferences] = useState('')
   const [preview, setPreview] = useState<FlashcardDraft[] | null>(null)
   const [generate, { isLoading, error }] = useGenerateAiMutation()
   const [generatePdf, { isLoading: pdfLoading, error: pdfError }] = useGenerateFromPdfMutation()
+  const [generateImage, { isLoading: imageLoading, error: imageError }] = useGenerateFromImageMutation()
   const [regenerateOne] = useRegenerateOneMutation()
 
   const [mode, setMode] = useState<GroupMode>(initialMode)
@@ -42,20 +55,47 @@ export function AiGeneratorModal({
   const [pdfFile, setPdfFile] = useState<File | null>(null)
   const [pdfErr, setPdfErr] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imageErr, setImageErr] = useState('')
+  const [dragOver, setDragOver] = useState(false)
   const [rollingIdx, setRollingIdx] = useState<number | null>(null)
 
   useEffect(() => {
     if (open) {
+      setContentKind(initialContentKind)
       setMode(initialMode)
-      setFrontLang(initialFrontLang)
+      setFrontLang(initialContentKind === 'phrasal_verbs' ? 'English' : initialFrontLang)
       setBackLang(initialBackLang)
       setEnglishLevel(userLevel)
       setPreview(null)
       setPdfFile(null)
       setPdfErr('')
+      setImageFile(null)
+      setImageErr('')
+      setDragOver(false)
       setRollingIdx(null)
     }
-  }, [open, initialMode, initialFrontLang, initialBackLang, userLevel])
+  }, [open, initialMode, initialContentKind, initialFrontLang, initialBackLang, userLevel])
+
+  useEffect(() => {
+    if (!open || contentKind !== 'vocabulary' || source !== 'image') return
+    function onPaste(e: ClipboardEvent) {
+      const items = e.clipboardData?.items
+      if (!items) return
+      for (const item of items) {
+        if (item.kind !== 'file') continue
+        const file = item.getAsFile()
+        if (!file) continue
+        if (!isSupportedImage(file)) continue
+        e.preventDefault()
+        setImageFromFile(file)
+        return
+      }
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [open, contentKind, source])
 
   if (!open) return null
 
@@ -68,12 +108,39 @@ export function AiGeneratorModal({
     }
   }
 
-  const modeLabel = mode === 'definition'
-    ? `${frontLang} words with definitions`
-    : `${frontLang} → ${backLang} translations`
+  function handleContentKindChange(ck: ContentKind) {
+    setContentKind(ck)
+    setPreview(null)
+    setRollingIdx(null)
+    if (ck === 'phrasal_verbs') {
+      setEnglishLevel(userLevel)
+      setFrontLang('English')
+      setSource('topic')
+      if (mode === 'translation') setBackLang('Ukrainian')
+    }
+  }
 
-  const busy = isLoading || pdfLoading
-  const activeError = source === 'pdf' ? pdfError : error
+  function handleSourceChange(next: Source) {
+    setSource(next)
+    setPreview(null)
+    setRollingIdx(null)
+    setPdfErr('')
+    setImageErr('')
+    if (next !== 'pdf') setPdfFile(null)
+    if (next !== 'image') setImageFile(null)
+  }
+
+  const modeLabel =
+    contentKind === 'phrasal_verbs'
+      ? mode === 'definition'
+        ? 'English phrasal verbs with definitions'
+        : `English phrasal verbs → ${backLang} translations`
+      : mode === 'definition'
+        ? `${frontLang} words with definitions`
+        : `${frontLang} → ${backLang} translations`
+
+  const busy = isLoading || pdfLoading || imageLoading
+  const activeError = source === 'pdf' ? pdfError : source === 'image' ? imageError : error
 
   async function handleGenerate(e?: React.FormEvent) {
     e?.preventDefault()
@@ -83,8 +150,9 @@ export function AiGeneratorModal({
       const res = await generate({
         topic,
         englishLevel,
-        count,
+        count: wordCountForApi(countInput),
         mode,
+        contentKind,
         frontLang,
         backLang,
         preferences: preferences || undefined,
@@ -104,8 +172,9 @@ export function AiGeneratorModal({
       const res = await generate({
         topic,
         englishLevel,
-        count,
+        count: wordCountForApi(countInput),
         mode,
+        contentKind,
         frontLang,
         backLang,
         preferences: preferences || undefined,
@@ -126,6 +195,7 @@ export function AiGeneratorModal({
         topic,
         englishLevel,
         mode,
+        contentKind,
         frontLang,
         backLang,
         exclude,
@@ -160,6 +230,26 @@ export function AiGeneratorModal({
     }
   }
 
+  async function handleImageGenerate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!imageFile) {
+      setImageErr('Please select an image.')
+      return
+    }
+    setImageErr('')
+    setPreview(null)
+    setRollingIdx(null)
+    const formData = new FormData()
+    formData.append('image', imageFile)
+    formData.append('englishLevel', englishLevel)
+    try {
+      const res = await generateImage(formData).unwrap()
+      setPreview(res.flashcards)
+    } catch {
+      /* RTK sets error */
+    }
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -175,6 +265,25 @@ export function AiGeneratorModal({
     }
     setPdfErr('')
     setPdfFile(file)
+  }
+
+  function isSupportedImage(file: File): boolean {
+    return file.type === 'image/png' || file.type === 'image/jpeg'
+  }
+
+  function setImageFromFile(file: File) {
+    if (!isSupportedImage(file)) {
+      setImageErr('Only PNG and JPG images are accepted.')
+      setImageFile(null)
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setImageErr('Image must be under 5 MB.')
+      setImageFile(null)
+      return
+    }
+    setImageErr('')
+    setImageFile(file)
   }
 
   const showForm = !preview
@@ -193,68 +302,164 @@ export function AiGeneratorModal({
 
           {showForm && (
             <>
-              <div className={styles.sourceTabs}>
+              <div className={styles.sourceTabs} role="group" aria-label="Card type">
                 <button
                   type="button"
-                  className={source === 'topic' ? styles.sourceOn : styles.sourceTab}
-                  onClick={() => { setSource('topic'); setPreview(null) }}
+                  className={contentKind === 'vocabulary' ? styles.sourceOn : styles.sourceTab}
+                  onClick={() => handleContentKindChange('vocabulary')}
                 >
-                  By topic
+                  Vocabulary
                 </button>
                 <button
                   type="button"
-                  className={source === 'pdf' ? styles.sourceOn : styles.sourceTab}
-                  onClick={() => { setSource('pdf'); setPreview(null) }}
+                  className={contentKind === 'phrasal_verbs' ? styles.sourceOn : styles.sourceTab}
+                  onClick={() => handleContentKindChange('phrasal_verbs')}
                 >
-                  From PDF
+                  Phrasal verbs
                 </button>
               </div>
 
-              {source === 'topic' && (
+              {contentKind === 'vocabulary' && (
+                <div className={styles.sourceCards} role="group" aria-label="Source">
+                  <button
+                    type="button"
+                    className={[
+                      styles.sourceCard,
+                      source === 'topic' ? styles.sourceCardOn : '',
+                    ].join(' ')}
+                    onClick={() => handleSourceChange('topic')}
+                  >
+                    <span className={styles.sourceCardIcon}>
+                      <img src={sourceIconTopic} alt="" className={styles.sourceCardIconImg} decoding="async" />
+                    </span>
+                    <span className={styles.sourceCardTitle}>Topic</span>
+                    <span className={styles.sourceCardSub}>Based on selected topic</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={[
+                      styles.sourceCard,
+                      source === 'pdf' ? styles.sourceCardOn : '',
+                    ].join(' ')}
+                    onClick={() => handleSourceChange('pdf')}
+                  >
+                    <span className={styles.sourceCardIcon}>
+                      <img src={sourceIconPdf} alt="" className={styles.sourceCardIconImg} decoding="async" />
+                    </span>
+                    <span className={styles.sourceCardTitle}>PDF</span>
+                    <span className={styles.sourceCardSub}>Extract from uploaded document</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={[
+                      styles.sourceCard,
+                      source === 'image' ? styles.sourceCardOn : '',
+                    ].join(' ')}
+                    onClick={() => handleSourceChange('image')}
+                  >
+                    <span className={styles.sourceCardIcon}>
+                      <img src={sourceIconImage} alt="" className={styles.sourceCardIconImg} decoding="async" />
+                    </span>
+                    <span className={styles.sourceCardTitle}>Image</span>
+                    <span className={styles.sourceCardSub}>Extract from an uploaded image</span>
+                  </button>
+                </div>
+              )}
+
+              {(contentKind === 'phrasal_verbs' || source === 'topic') && (
                 <>
                   <p className={styles.hint}>
-                    Powered by Google Gemini. Generating {modeLabel}.
+                    {contentKind === 'phrasal_verbs'
+                      ? `Powered by OpenAI. ${modeLabel}. Topic can be a theme or a base verb (e.g. put, call). Verbs with several meanings may appear as separate cards: take down (1), take down (2), …`
+                      : `Powered by OpenAI. Generating ${modeLabel}.`}
                   </p>
                   <form className={styles.form} onSubmit={handleGenerate}>
                     <div className={styles.modeRow}>
                       <label className={styles.field}>
                         <span>Mode</span>
-                        <select value={mode} onChange={(e) => handleModeChange(e.target.value as GroupMode)}>
+                        <select
+                          id="ai-gen-topic-mode"
+                          name="mode"
+                          value={mode}
+                          onChange={(e) => handleModeChange(e.target.value as GroupMode)}
+                        >
                           <option value="translation">Translation</option>
                           <option value="definition">Definition</option>
                         </select>
                       </label>
-                      <label className={styles.field}>
-                        <span>Front language</span>
-                        <select value={frontLang} onChange={(e) => setFrontLang(e.target.value)}>
-                          {LANGUAGES.map((l) => (
-                            <option key={l} value={l}>{l}</option>
-                          ))}
-                        </select>
-                      </label>
-                      {mode === 'translation' && (
-                        <label className={styles.field}>
-                          <span>Back language</span>
-                          <select value={backLang} onChange={(e) => setBackLang(e.target.value)}>
-                            {LANGUAGES.filter((l) => l !== frontLang).map((l) => (
-                              <option key={l} value={l}>{l}</option>
-                            ))}
-                          </select>
-                        </label>
+                      {contentKind === 'vocabulary' ? (
+                        <>
+                          <label className={styles.field}>
+                            <span>Front language</span>
+                            <select
+                              id="ai-gen-topic-front-lang"
+                              name="frontLang"
+                              value={frontLang}
+                              onChange={(e) => setFrontLang(e.target.value)}
+                            >
+                              {LANGUAGES.map((l) => (
+                                <option key={l} value={l}>{l}</option>
+                              ))}
+                            </select>
+                          </label>
+                          {mode === 'translation' && (
+                            <label className={styles.field}>
+                              <span>Back language</span>
+                              <select
+                                id="ai-gen-topic-back-lang"
+                                name="backLang"
+                                value={backLang}
+                                onChange={(e) => setBackLang(e.target.value)}
+                              >
+                                {LANGUAGES.filter((l) => l !== frontLang).map((l) => (
+                                  <option key={l} value={l}>{l}</option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {mode === 'translation' && (
+                            <label className={styles.field}>
+                              <span>Back language</span>
+                              <select
+                                id="ai-gen-topic-back-lang"
+                                name="backLang"
+                                value={backLang}
+                                onChange={(e) => setBackLang(e.target.value)}
+                              >
+                                {LANGUAGES.filter((l) => l !== 'English').map((l) => (
+                                  <option key={l} value={l}>{l}</option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
+                        </>
                       )}
                     </div>
                     <label className={styles.field}>
-                      <span>Topic</span>
+                      <span>{contentKind === 'phrasal_verbs' ? 'Topic or base verb' : 'Topic'}</span>
                       <input
+                        id="ai-gen-topic"
+                        name="topic"
                         value={topic}
                         onChange={(e) => setTopic(e.target.value)}
-                        placeholder="e.g. travel, business, daily life"
+                        placeholder={
+                          contentKind === 'phrasal_verbs'
+                            ? 'e.g. travel, emotions, or put · call · get'
+                            : 'e.g. travel, business, daily life'
+                        }
                         required
                       />
                     </label>
                     <label className={styles.field}>
-                      <span>{frontLang} level</span>
+                      <span>
+                        {contentKind === 'phrasal_verbs' ? 'English level' : `${frontLang} level`}
+                      </span>
                       <select
+                        id="ai-gen-topic-english-level"
+                        name="englishLevel"
                         value={englishLevel}
                         onChange={(e) => setEnglishLevel(e.target.value as typeof englishLevel)}
                       >
@@ -266,16 +471,41 @@ export function AiGeneratorModal({
                     <label className={styles.field}>
                       <span>Number of words</span>
                       <input
+                        id="ai-gen-topic-count"
+                        name="count"
                         type="number"
                         min={1}
                         max={30}
-                        value={count}
-                        onChange={(e) => setCount(Number(e.target.value))}
+                        inputMode="numeric"
+                        value={countInput}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          if (v === '') {
+                            setCountInput('')
+                            return
+                          }
+                          const n = Number(v)
+                          if (!Number.isFinite(n)) return
+                          if (n > 30) {
+                            setCountInput('30')
+                            return
+                          }
+                          setCountInput(v)
+                        }}
+                        onBlur={() => {
+                          if (countInput === '') {
+                            setCountInput('8')
+                            return
+                          }
+                          setCountInput(String(wordCountForApi(countInput)))
+                        }}
                       />
                     </label>
                     <label className={styles.field}>
                       <span>Preferences (optional)</span>
                       <input
+                        id="ai-gen-topic-preferences"
+                        name="preferences"
                         value={preferences}
                         onChange={(e) => setPreferences(e.target.value)}
                         placeholder="e.g. formal vocabulary, verbs only"
@@ -295,15 +525,17 @@ export function AiGeneratorModal({
                 </>
               )}
 
-              {source === 'pdf' && (
+              {contentKind === 'vocabulary' && source === 'pdf' && (
                 <>
                   <p className={styles.hint}>
-                    Upload a lesson PDF (exported from Miro, slides, etc.) and Gemini will extract vocabulary.
+                    Upload a lesson PDF (exported from Miro, slides, etc.) and the AI will extract vocabulary.
                   </p>
                   <form className={styles.form} onSubmit={handlePdfGenerate}>
                     <label className={styles.field}>
                       <span>English level</span>
                       <select
+                        id="ai-gen-pdf-english-level"
+                        name="englishLevel"
                         value={englishLevel}
                         onChange={(e) => setEnglishLevel(e.target.value as typeof englishLevel)}
                       >
@@ -315,6 +547,8 @@ export function AiGeneratorModal({
                     <label className={styles.field}>
                       <span>PDF file</span>
                       <input
+                        id="ai-gen-pdf-file"
+                        name="pdf"
                         ref={fileRef}
                         type="file"
                         accept="application/pdf"
@@ -335,6 +569,90 @@ export function AiGeneratorModal({
                     )}
                     <button type="submit" className={styles.submit} disabled={busy || !pdfFile}>
                       {pdfLoading ? <><LoaderDots size="sm" /> Analyzing PDF</> : 'Extract vocabulary'}
+                    </button>
+                  </form>
+                </>
+              )}
+
+              {contentKind === 'vocabulary' && source === 'image' && (
+                <>
+                  <p className={styles.hint}>
+                    Extract vocabulary from an uploaded image (OCR).
+                  </p>
+                  <form className={styles.form} onSubmit={handleImageGenerate}>
+                    <label className={styles.field}>
+                      <span>English level</span>
+                      <select
+                        id="ai-gen-image-english-level"
+                        name="englishLevel"
+                        value={englishLevel}
+                        onChange={(e) => setEnglishLevel(e.target.value as typeof englishLevel)}
+                      >
+                        {LEVELS.map((l) => (
+                          <option key={l} value={l}>{l}</option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <div
+                      className={[
+                        styles.dropzone,
+                        dragOver ? styles.dropzoneActive : '',
+                      ].join(' ')}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        setDragOver(true)
+                      }}
+                      onDragLeave={() => setDragOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        setDragOver(false)
+                        const file = e.dataTransfer.files?.[0]
+                        if (file) setImageFromFile(file)
+                      }}
+                    >
+                      <div className={styles.dropzoneText}>
+                        <strong>Drag & drop an image here or paste / upload</strong>
+                        <span className={styles.dropzoneHint}>
+                          Supported formats: PNG, JPG · Max file size: 5MB
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.uploadBtn}
+                        onClick={() => imageInputRef.current?.click()}
+                      >
+                        <FiUpload size={14} /> Upload
+                      </button>
+                      <input
+                        ref={imageInputRef}
+                        id="ai-gen-image-file"
+                        name="image"
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0]
+                          if (f) setImageFromFile(f)
+                        }}
+                      />
+                    </div>
+
+                    {imageFile && (
+                      <p className={styles.fileMeta}>
+                        Selected: <strong>{imageFile.name}</strong> ({(imageFile.size / 1024).toFixed(0)} KB)
+                      </p>
+                    )}
+                    {imageErr && <p className={styles.err}>{imageErr}</p>}
+                    {activeError && (
+                      <p className={styles.err}>
+                        {'data' in activeError && typeof (activeError as { data?: { error?: string } }).data?.error === 'string'
+                          ? (activeError as { data: { error: string } }).data.error
+                          : 'Could not extract from image. Check the server.'}
+                      </p>
+                    )}
+                    <button type="submit" className={styles.submit} disabled={busy || !imageFile}>
+                      {imageLoading ? <><LoaderDots size="sm" /> Extracting</> : 'Extract vocabulary'}
                     </button>
                   </form>
                 </>
@@ -390,7 +708,7 @@ export function AiGeneratorModal({
                   type="button"
                   className={styles.primary}
                   onClick={() => {
-                    onApply(preview, mode, frontLang, backLang)
+                    onApply(preview, mode, frontLang, backLang, contentKind)
                     onClose()
                   }}
                 >

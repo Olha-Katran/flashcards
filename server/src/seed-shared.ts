@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { prisma } from './prisma.js'
-import { generateFlashcards } from './gemini.js'
+import { generateFlashcards } from './openai.js'
 
 const SHARED_TOPICS = [
   'physical world', 'animals', 'weather', 'body', 'appearance',

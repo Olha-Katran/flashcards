@@ -4,6 +4,26 @@
   gap: 1.5rem;
 }
 
+.userGroupsByStatus {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.userGroupsStatusBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.userGroupsStatusTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
 .hero {
   flex-wrap: wrap;
   align-items: flex-start;
@@ -165,6 +185,13 @@
   margin: 0;
   color: var(--color-text-muted);
   font-size: 0.85rem;
+}
+
+.searchEmpty {
+  margin: 0;
+  padding: 0.75rem 0;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
 }
 
 .sharedStart {

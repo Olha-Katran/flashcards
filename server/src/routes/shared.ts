@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { requireAuth } from '../auth.js'
-import { generateFlashcards } from '../gemini.js'
+import { generateFlashcards } from '../openai.js'
 import { prisma } from '../prisma.js'
 
 export const sharedRouter = Router()
@@ -52,7 +52,7 @@ sharedRouter.get('/', async (req, res) => {
 
 // Generates (if not cached) and copies a shared group to the user's collection.
 // Fully try/catch: unhandled rejections on Vercel often return a raw error with no CORS headers,
-// which the browser reports as a CORS failure even when the real issue is Gemini/DB/timeout.
+// which the browser reports as a CORS failure even when the real issue is AI/DB/timeout.
 sharedRouter.post('/start', requireAuth, async (req, res) => {
   const { topic } = req.body as { topic?: string }
   const level = String(req.body.level || 'B1').toUpperCase()

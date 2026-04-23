@@ -10,7 +10,7 @@ import {
   useUpdateGroupMutation,
 } from '../services/api'
 import { LANGUAGES } from '../constants'
-import type { Flashcard, FlashcardDraft, GroupMode } from '../types'
+import type { ContentKind, Flashcard, FlashcardDraft, GroupMode } from '../types'
 import styles from './GroupEditPage.module.scss'
 
 type Row = FlashcardDraft & { id?: string; status?: Flashcard['status'] }
@@ -36,6 +36,7 @@ export function GroupEditPage() {
   const [updateGroup, { isLoading: updating }] = useUpdateGroupMutation()
 
   const [title, setTitle] = useState('')
+  const [contentKind, setContentKind] = useState<ContentKind>('vocabulary')
   const [mode, setMode] = useState<GroupMode>('translation')
   const [frontLang, setFrontLang] = useState('English')
   const [backLang, setBackLang] = useState('Ukrainian')
@@ -46,6 +47,7 @@ export function GroupEditPage() {
   useEffect(() => {
     if (!isNew && existing) {
       setTitle(existing.title)
+      setContentKind(existing.contentKind ?? 'vocabulary')
       setMode(existing.mode ?? 'translation')
       setFrontLang(existing.frontLang ?? 'English')
       setBackLang(existing.backLang ?? 'Ukrainian')
@@ -68,12 +70,14 @@ export function GroupEditPage() {
     const st = location.state as {
       aiCards?: FlashcardDraft[]
       aiMode?: GroupMode
+      aiContentKind?: ContentKind
       aiFrontLang?: string
       aiBackLang?: string
     } | null
     const ai = st?.aiCards
     if (ai && ai.length && isNew) {
       if (st?.aiMode) setMode(st.aiMode)
+      if (st?.aiContentKind) setContentKind(st.aiContentKind)
       if (st?.aiFrontLang) setFrontLang(st.aiFrontLang)
       if (st?.aiBackLang) setBackLang(st.aiBackLang)
       setRows(
@@ -97,6 +101,14 @@ export function GroupEditPage() {
       setBackLang(frontLang)
     } else if (backLang === frontLang) {
       setBackLang('Ukrainian')
+    }
+  }
+
+  function handleContentKindChange(ck: ContentKind) {
+    setContentKind(ck)
+    if (ck === 'phrasal_verbs') {
+      setFrontLang('English')
+      if (mode === 'translation' && backLang === 'English') setBackLang('Ukrainian')
     }
   }
 
@@ -142,6 +154,7 @@ export function GroupEditPage() {
           title: title.trim() || 'Untitled',
           flashcards,
           mode,
+          contentKind,
           frontLang,
           backLang,
         }).unwrap()
@@ -152,6 +165,7 @@ export function GroupEditPage() {
           title: title.trim() || 'Untitled',
           flashcards,
           mode,
+          contentKind,
           frontLang,
           backLang,
         }).unwrap()
@@ -162,8 +176,15 @@ export function GroupEditPage() {
     }
   }
 
-  function mergeAi(cards: FlashcardDraft[], aiMode: GroupMode, aiFrontLang: string, aiBackLang: string) {
+  function mergeAi(
+    cards: FlashcardDraft[],
+    aiMode: GroupMode,
+    aiFrontLang: string,
+    aiBackLang: string,
+    aiContentKind: ContentKind
+  ) {
     setMode(aiMode)
+    setContentKind(aiContentKind)
     setFrontLang(aiFrontLang)
     setBackLang(aiBackLang)
     setRows((prev) => [
@@ -189,6 +210,9 @@ export function GroupEditPage() {
     ? 'Definition'
     : `${backLang} translation`
 
+  const frontPlaceholder =
+    contentKind === 'phrasal_verbs' ? 'Phrasal verb (e.g. put off)' : `${frontLang} word`
+
   return (
     <div className={styles.page}>
       <div className={styles.top}>
@@ -206,6 +230,8 @@ export function GroupEditPage() {
         <label className={styles.field}>
           <span>Title</span>
           <input
+            id="group-edit-title"
+            name="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="My vocabulary"
@@ -213,31 +239,79 @@ export function GroupEditPage() {
           />
         </label>
 
+        <label className={styles.field}>
+          <span>Card type</span>
+          <select
+            id="group-edit-content-kind"
+            name="contentKind"
+            value={contentKind}
+            onChange={(e) => handleContentKindChange(e.target.value as ContentKind)}
+          >
+            <option value="vocabulary">Vocabulary</option>
+            <option value="phrasal_verbs">Phrasal verbs</option>
+          </select>
+        </label>
+
         <div className={styles.modeRow}>
           <label className={styles.field}>
             <span>Mode</span>
-            <select value={mode} onChange={(e) => handleModeChange(e.target.value as GroupMode)}>
+            <select
+              id="group-edit-mode"
+              name="mode"
+              value={mode}
+              onChange={(e) => handleModeChange(e.target.value as GroupMode)}
+            >
               <option value="translation">Translation</option>
               <option value="definition">Definition</option>
             </select>
           </label>
-          <label className={styles.field}>
-            <span>Front language</span>
-            <select value={frontLang} onChange={(e) => setFrontLang(e.target.value)}>
-              {LANGUAGES.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
-          </label>
-          {mode === 'translation' && (
-            <label className={styles.field}>
-              <span>Back language</span>
-              <select value={backLang} onChange={(e) => setBackLang(e.target.value)}>
-                {LANGUAGES.filter((l) => l !== frontLang).map((l) => (
-                  <option key={l} value={l}>{l}</option>
-                ))}
-              </select>
-            </label>
+          {contentKind === 'vocabulary' ? (
+            <>
+              <label className={styles.field}>
+                <span>Front language</span>
+                <select
+                  id="group-edit-front-lang"
+                  name="frontLang"
+                  value={frontLang}
+                  onChange={(e) => setFrontLang(e.target.value)}
+                >
+                  {LANGUAGES.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+              </label>
+              {mode === 'translation' && (
+                <label className={styles.field}>
+                  <span>Back language</span>
+                  <select
+                    id="group-edit-back-lang"
+                    name="backLang"
+                    value={backLang}
+                    onChange={(e) => setBackLang(e.target.value)}
+                  >
+                    {LANGUAGES.filter((l) => l !== frontLang).map((l) => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </>
+          ) : (
+            mode === 'translation' && (
+              <label className={styles.field}>
+                <span>Back language</span>
+                <select
+                  id="group-edit-back-lang"
+                  name="backLang"
+                  value={backLang}
+                  onChange={(e) => setBackLang(e.target.value)}
+                >
+                  {LANGUAGES.filter((l) => l !== 'English').map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+              </label>
+            )
           )}
         </div>
 
@@ -252,12 +326,16 @@ export function GroupEditPage() {
           {rows.map((row, i) => (
             <div key={row.id ?? `new-${i}`} className={styles.row}>
               <input
+                id={`group-edit-card-${i}-front`}
+                name={`cards[${i}].english`}
                 className={styles.en}
-                placeholder={`${frontLang} word`}
+                placeholder={frontPlaceholder}
                 value={row.english}
                 onChange={(e) => updateRow(i, { english: e.target.value })}
               />
               <input
+                id={`group-edit-card-${i}-back`}
+                name={`cards[${i}].back`}
                 className={styles.backInput}
                 placeholder={backPlaceholder}
                 value={row.back}
@@ -290,6 +368,7 @@ export function GroupEditPage() {
         onClose={() => setAiOpen(false)}
         onApply={mergeAi}
         mode={mode}
+        contentKind={contentKind}
         frontLang={frontLang}
         backLang={backLang}
       />

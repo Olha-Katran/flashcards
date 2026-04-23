@@ -4,6 +4,7 @@ import type {
   Flashcard,
   FlashcardDraft,
   FlashcardGroup,
+  ContentKind,
   GroupMode,
   GroupSummary,
   SharedGroupSummary,
@@ -39,6 +40,7 @@ export const flashcardsApi = createApi({
         title: string
         flashcards?: FlashcardDraft[]
         mode?: GroupMode
+        contentKind?: ContentKind
         frontLang?: string
         backLang?: string
       }
@@ -59,6 +61,7 @@ export const flashcardsApi = createApi({
           FlashcardDraft & { id?: string; status?: Flashcard['status'] }
         >
         mode?: GroupMode
+        contentKind?: ContentKind
         frontLang?: string
         backLang?: string
       }
@@ -130,6 +133,7 @@ export const flashcardsApi = createApi({
         topic: string
         englishLevel: string
         mode?: GroupMode
+        contentKind?: ContentKind
         frontLang?: string
         backLang?: string
         exclude?: string[]
@@ -147,6 +151,17 @@ export const flashcardsApi = createApi({
     >({
       query: (body) => ({
         url: '/ai/generate-from-pdf',
+        method: 'POST',
+        body,
+        formData: true,
+      }),
+    }),
+    generateFromImage: builder.mutation<
+      { flashcards: FlashcardDraft[] },
+      FormData
+    >({
+      query: (body) => ({
+        url: '/ai/generate-from-image',
         method: 'POST',
         body,
         formData: true,
@@ -207,6 +222,7 @@ export const {
   useGenerateAiMutation,
   useRegenerateOneMutation,
   useGenerateFromPdfMutation,
+  useGenerateFromImageMutation,
   useValidateAnswerMutation,
   useCompleteExamMutation,
   useListSharedGroupsQuery,

@@ -2,6 +2,8 @@ export type BackKind = 'translation' | 'meaning'
 export type FlashcardStatus = 'new' | 'learning' | 'learnt'
 export type GroupStatus = 'in_progress' | 'learnt'
 export type GroupMode = 'translation' | 'definition'
+/** vocabulary = general words; phrasal_verbs = English phrasal verbs (same translation/definition modes) */
+export type ContentKind = 'vocabulary' | 'phrasal_verbs'
 
 export interface Flashcard {
   id: string
@@ -19,6 +21,8 @@ export interface FlashcardGroup {
   title: string
   groupStatus: GroupStatus
   mode: GroupMode
+  /** Defaults to vocabulary when omitted (older API responses). */
+  contentKind?: ContentKind
   frontLang: string
   backLang: string
   sharedTopic?: string | null
@@ -30,6 +34,8 @@ export interface GroupSummary {
   title: string
   groupStatus: GroupStatus
   mode: GroupMode
+  /** Defaults to vocabulary when omitted (older API responses). */
+  contentKind?: ContentKind
   frontLang: string
   backLang: string
   sharedTopic?: string | null
@@ -59,6 +65,7 @@ export interface AiGenerateRequest {
   englishLevel: string
   count: number
   mode?: GroupMode
+  contentKind?: ContentKind
   frontLang?: string
   backLang?: string
   preferences?: string
